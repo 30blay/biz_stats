@@ -31,7 +31,7 @@ def update_metrics():
 
 
 while True:
-    while datetime.datetime.now().second != 1:  # Wait 1 second until the start of the next hour
+    while datetime.datetime.now().minute != 1:  # Wait 1 second until the start of the next hour
         sleep(1)
 
     update_metrics()
