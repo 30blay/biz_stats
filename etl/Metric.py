@@ -137,7 +137,7 @@ class BikeshareMau(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_city_mau, group)
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareUsers(Metric):
@@ -146,7 +146,7 @@ class BikeshareUsers(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_users, group)
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareTaps(Metric):
@@ -155,7 +155,7 @@ class BikeshareTaps(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_taps, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareTripPlans(Metric):
@@ -164,7 +164,7 @@ class BikeshareTripPlans(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_trip_plans, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareUnlocksTotals(Metric):
@@ -173,7 +173,7 @@ class BikeshareUnlocksTotals(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_unlocks, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareUnlocksUniques(Metric):
@@ -182,7 +182,7 @@ class BikeshareUnlocksUniques(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.bikeshare_unlocks, group)
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
 class BikeshareSales(Metric):
@@ -192,7 +192,7 @@ class BikeshareSales(Metric):
         self.groups_enabled = False
 
     def _get(self, period):
-        sales = sql_con.get_sales_data(period.start, period.end)
+        sales = sql_con.get_sales_data(period, period.end)
         return sales.groupby('service').sum()[self.interest_vars]
 
 
@@ -286,7 +286,7 @@ class AgencyDownloads(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.agency_download, group)
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
 class AgencyMau(Metric):
@@ -296,13 +296,13 @@ class AgencyMau(Metric):
 
     def _get(self, period, group):
         users_event = self._get_event(event_definitions.agency_user, group)
-        group_users = get_event_on_period(users_event, period.start, EventMode.uniques, amplitude_con, self.aggregation_type)
-        all_users = get_event_on_period(event_definitions.agency_user(), period.start, EventMode.uniques, amplitude_con, self.aggregation_type)
+        group_users = get_event_on_period(users_event, period, EventMode.uniques, amplitude_con, self.aggregation_type)
+        all_users = get_event_on_period(event_definitions.agency_user(), period, EventMode.uniques, amplitude_con, self.aggregation_type)
 
         # For overlapping agencies, MAU is based on "tap nearby service" and a conversion ratio
         taps_event = self._get_event(event_definitions.feed_tap_nearby_service, group)
-        group_taps = get_event_on_period(taps_event, period.start, EventMode.uniques, amplitude_con, self.aggregation_type)
-        all_taps = get_event_on_period(event_definitions.feed_tap_nearby_service(), period.start, EventMode.uniques, amplitude_con, self.aggregation_type)
+        group_taps = get_event_on_period(taps_event, period, EventMode.uniques, amplitude_con, self.aggregation_type)
+        all_taps = get_event_on_period(event_definitions.feed_tap_nearby_service(), period, EventMode.uniques, amplitude_con, self.aggregation_type)
 
         # get conversion ratio
         feeds = get_feeds()
@@ -325,7 +325,7 @@ class AgencyUncorrectedMau(Metric):
 
     def _get(self, period, group):
         users_event = self._get_event(event_definitions.agency_user, group)
-        users = get_event_on_period(users_event, period.start, EventMode.uniques, amplitude_con, self.aggregation_type)
+        users = get_event_on_period(users_event, period, EventMode.uniques, amplitude_con, self.aggregation_type)
         users = users.drop(index='(none)', errors='ignore')
         return users.round()
 
@@ -342,7 +342,7 @@ class AgencyGoTrips(Metric):
 
     def _get(self, period, group):
         go_event = self._get_event(event_definitions.feed_go_trip, group)
-        df = get_event_on_period(go_event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        df = get_event_on_period(go_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
         feed_codes = get_feeds()[['feed_id', 'feed_code']].set_index('feed_id')
         feed_codes.index = feed_codes.index.astype(str)
         df.index = df.index.map(feed_codes.feed_code)
@@ -533,7 +533,7 @@ class AgencyTripPlans(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.agency_total_trip_plans, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class AgencySharedVehicleTaps(Metric):
@@ -542,7 +542,7 @@ class AgencySharedVehicleTaps(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.agency_shared_vehicule_taps, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class AgencyRidehailRequestsPlusTrips(Metric):
@@ -551,10 +551,10 @@ class AgencyRidehailRequestsPlusTrips(Metric):
 
     def _get(self, period, group):
         launch_event = self._get_event(event_definitions.agency_launch_service_app, group)
-        launch_count = get_event_on_period(launch_event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        launch_count = get_event_on_period(launch_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
         trip_event = self._get_event(event_definitions.agency_complete_ridehail_trip, group)
-        trip_count = get_event_on_period(trip_event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        trip_count = get_event_on_period(trip_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
         return launch_count + trip_count
 
 
@@ -564,7 +564,7 @@ class AgencySharedVehicleUnlocks(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.agency_shared_vehicle_unlocks, group)
-        return get_event_on_period(event, period.start, EventMode.totals, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
 
 
 class AgencyTransitAccounts(Metric):
@@ -573,7 +573,7 @@ class AgencyTransitAccounts(Metric):
 
     def _get(self, period, group):
         event = self._get_event(event_definitions.agency_transit_account_sessions, group)
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
 class AgencyCreditCardAccounts(Metric):
@@ -584,7 +584,7 @@ class AgencyCreditCardAccounts(Metric):
         event = self._get_event(event_definitions.agency_transit_account_sessions, group)
         credit_card_accounts = Segment()
         credit_card_accounts.add_filter('userdata_cohort', 'is', ['o8jdi7p'])
-        return get_event_on_period(event, period.start, EventMode.uniques, amplitude_con, AggregationType.NONE,
+        return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE,
                                    segment=credit_card_accounts)
 
 

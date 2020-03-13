@@ -240,7 +240,7 @@ class DataWarehouse:
         period = date_utils.Period(start, period_type)
         while period.start <= stop:
             periods.append(period)
-            period = date_utils.Period(period.end + datetime.timedelta(days=1), period_type)
+            period = date_utils.Period(period.end + datetime.timedelta(hours=1), period_type)
         return periods
                 
     def load_between(self, start, stop, period_type, metrics):
@@ -259,6 +259,10 @@ class DataWarehouse:
             .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
 
         df = pd.DataFrame(query.all())
+
+        if len(df) == 0:
+            raise ValueError("No data found for metrics {} at periods {}".format(metric_names, [str(p) for p in periods]))
+
         df = df.pivot(index='start', columns='metric', values='value')
         session.close()
         df.to_clipboard()
