@@ -11,18 +11,17 @@ warehouse.create_all()
 warehouse.add_periods()
 warehouse.add_entities()
 
-start = pd.datetime(2019, 1, 1)
-stop = pd.datetime(2020, 2, 1)
+start = pd.datetime(2020, 3, 13)
+stop = pd.datetime(2020, 3, 14)
 
 metrics = [
-    AgencyDau(),
-    AgencyMau(),
-    AgencyAdoption(),
+    AgencyGoTrips(),
     AgencyDownloads(),
     AgencySessions(),
-    AgencyAlertsSubs(),
+    AgencySales(),
+    AgencyTicketsSold(),
 ]
 
 # warehouse.load_between(start, stop, PeriodType.MONTH, metrics)
 
-df = warehouse.get_feed_stats(75, metrics, start, stop, period_type=PeriodType.MONTH)
+df = warehouse.get_feed_stats(1, metrics, start, stop, period_type=PeriodType.HOUR)

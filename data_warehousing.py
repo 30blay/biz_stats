@@ -18,6 +18,9 @@ warehouse.load(
     [
         period,
     ], [
+        AgencyTripPlans(),
+        AgencyGoTrips(),
+        AgencyDownloads(),
         AgencySessions(),
         AgencySales(),
         AgencyTicketsSold(),
