@@ -12,26 +12,23 @@ warehouse = DataWarehouse(engine)
 warehouse.create_all()
 warehouse.add_entities()
 
+measure_start = datetime.datetime(2020, 3, 13)
+measure_stop = datetime.datetime(2020, 3, 14, hour=23, minute=59)
 
-def update_metrics():
+while True:
+    while datetime.datetime.now().minute != 0:  # Wait 1 second until the start of the next hour
+        sleep(1)
+
     now = datetime.datetime.now()
-    period = Period(now - datetime.timedelta(hours=1), PeriodType.HOUR)
+    stop = min(now, measure_stop)
 
-    warehouse.load(
-        [
-            period,
-        ], [
+    warehouse.load_between(measure_start, stop, PeriodType.HOUR, [
             AgencyTripPlans(),
             AgencyGoTrips(),
+            AgencyStartGo(),
             AgencyDownloads(),
             AgencySessions(),
             AgencySales(),
             AgencyTicketsSold(),
         ])
-
-
-while True:
-    while datetime.datetime.now().minute != 1:  # Wait 1 second until the start of the next hour
-        sleep(1)
-
-    update_metrics()
+    sleep(60)

@@ -349,6 +349,19 @@ class AgencyGoTrips(Metric):
         return df
 
 
+class AgencyStartGo(Metric):
+    def __init__(self):
+        super().__init__('Start Go', MetricType.AGENCY, '')
+
+    def _get(self, period, group):
+        go_event = self._get_event(event_definitions.feed_start_go, group)
+        df = get_event_on_period(go_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
+        feed_codes = get_feeds()[['feed_id', 'feed_code']].set_index('feed_id')
+        feed_codes.index = feed_codes.index.astype(str)
+        df.index = df.index.map(feed_codes.feed_code)
+        return df
+
+
 class AgencyAlertsSubs(Metric):
     def __init__(self):
         super().__init__('Service Alert Subscribers', MetricType.AGENCY, '')

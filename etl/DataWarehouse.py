@@ -39,7 +39,7 @@ class AgencyFact(Base):
     period_id = Column(Integer, ForeignKey(Period.period_id), primary_key=True)
     metric = Column(String, primary_key=True)
     value = Column(Float)
-    last_update = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    last_update = Column(DateTime, default=datetime.datetime.now, primary_key=True)
 
 
 class RouteFact(Base):
