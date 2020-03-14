@@ -318,8 +318,8 @@ class AgencyMau(Metric):
         return users.round()
         
         
-class AgencyUncorrectedMau(Metric):
-    def __init__(self, name='Uncorrected MAU'):
+class AgencyUniqueUsers(Metric):
+    def __init__(self, name='Unique Users'):
         self.aggregation_type = AggregationType.NONE
         super().__init__(name, MetricType.AGENCY, 0)
 
@@ -328,6 +328,18 @@ class AgencyUncorrectedMau(Metric):
         users = get_event_on_period(users_event, period, EventMode.uniques, amplitude_con, self.aggregation_type)
         users = users.drop(index='(none)', errors='ignore')
         return users.round()
+
+
+class AgencyUncorrectedSessions(Metric):
+    def __init__(self, name='Uncorrected Sessions'):
+        self.aggregation_type = AggregationType.NONE
+        super().__init__(name, MetricType.AGENCY, 0)
+
+    def _get(self, period, group):
+        session_event = self._get_event(event_definitions.agency_user, group)
+        sessions = get_event_on_period(session_event, period, EventMode.totals, amplitude_con, self.aggregation_type)
+        sessions = sessions.drop(index='(none)', errors='ignore')
+        return sessions.round()
 
 
 class AgencyDau(AgencyMau):
