@@ -53,8 +53,9 @@ class RouteFact(Base):
 
 
 class DataWarehouse:
-    def __init__(self, engine):
+    def __init__(self, engine, verbose=False):
         self.engine = engine
+        self.verbose = verbose
         self.declarative_base = Base
         self.connection = self.engine.connect()
         self.feeds = None
@@ -172,8 +173,9 @@ class DataWarehouse:
                 #groups = self.get_feed_groups()
                 pass
 
-            print(metric.name)
-            for period in tqdm(period_list):
+            if self.verbose:
+                print(metric.name)
+            for period in tqdm(period_list, disable=not self.verbose):
                 period_id = self._get_period_id(period)
 
                 if period_id is None:
