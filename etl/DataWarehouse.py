@@ -39,7 +39,7 @@ class AgencyFact(Base):
     period_id = Column(Integer, ForeignKey(Period.period_id), primary_key=True)
     metric = Column(String, primary_key=True)
     value = Column(Float)
-    last_update = Column(DateTime, default=datetime.datetime.now, primary_key=True)
+    last_update = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
 
 class RouteFact(Base):
@@ -242,54 +242,51 @@ class DataWarehouse:
         period = date_utils.Period(start, period_type)
         while period.start <= stop:
             periods.append(period)
-            period = date_utils.Period(period.end + datetime.timedelta(hours=1), period_type)
+            period = date_utils.Period(period.end + datetime.timedelta(minutes=1), period_type)
         return periods
                 
     def load_between(self, start, stop, period_type, metrics):
         periods = self.periods_between(start, stop, period_type)
         self.load(periods, metrics)
 
-    def get_feed_stats(self, feed_id, metrics, start, stop, period_type):
+    def slice_feed(self, feed_id, metrics, start, stop, period_type):
         metric_names = [metric.name for metric in metrics]
         entity_id = self._get_entity_id(feed_id)
         periods = self.periods_between(start, stop, period_type)
         period_ids = [self._get_period_id(period) for period in periods]
 
         session = Session(self.engine)
-        query = session.query(AgencyFact.metric, Period.start, AgencyFact.value)\
+        query = session.query(AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update)\
             .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
             .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
 
         df = pd.DataFrame(query.all())
-
-        if len(df) == 0:
-            raise ValueError("No data found for metrics {} at periods {}".format(metric_names, [str(p) for p in periods]))
-
+        df = self.correct_for_delayed_reporting(df)
         df = df.pivot(index='start', columns='metric', values='value')
         session.close()
         df.to_clipboard()
         print('Copied to clipboard')
         return df
 
-    def get_period_stats(self, period, metrics):
+    def slice_period(self, period, metrics):
         period_id = self._get_period_id(period)
         all_metric_names = [metric.name for metric in metrics]
         stored_metric_names = [metric.name for metric in metrics if not isinstance(metric, AgencyRatio)]
         feeds = self.get_feeds().set_index('feed_id').feed_code
 
         session = Session(self.engine)
-        query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value) \
+        query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
             .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
             .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
             .filter(Period.period_id == period_id,
                     AgencyFact.metric.in_(stored_metric_names))
 
         df = pd.DataFrame(query.all())
+        df = self.correct_for_delayed_reporting(df)
 
         if len(df) == 0:
             raise ValueError("No data found for metrics {} at period {}".format(all_metric_names, period))
 
-        df.value = pd.to_numeric(df.value)
         df = df.pivot(index='feed_id', columns='metric', values='value')
         df.index = df.index.map(feeds)
 
@@ -302,6 +299,28 @@ class DataWarehouse:
         df = df[all_metric_names]
 
         session.close()
+        return df
+
+    def slice_metric(self, start, end, period_type, metric):
+        periods = self.periods_between(start, end, period_type)
+        period_ids = [self._get_period_id(period) for period in periods]
+        feeds = self.get_feeds().set_index('feed_id').feed_code
+
+        session = Session(self.engine)
+        query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
+            .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
+            .filter(Period.period_id.in_(period_ids), AgencyFact.metric == metric.name)
+
+        df = pd.DataFrame(query.all())
+        df = self.correct_for_delayed_reporting(df)
+
+        if len(df) == 0:
+            raise ValueError("No data found for metric {} between {} and {}".format(metric, start, end))
+
+        df = df.pivot(index='feed_id', columns='start', values='value')
+        df.index = df.index.map(feeds)
+
         return df
 
     def get_top_routes_and_hits(self, period, this_period_last_year=False, n=3):
@@ -384,3 +403,14 @@ class DataWarehouse:
             df = df.append(month_df)
 
         return df
+
+    def correct_for_delayed_reporting(self, df):
+        correction_factor = pd.read_csv('etl/amplitude_delay.csv')
+        df['delay'] = df.last_update - df.start
+        df.loc[df.delay < datetime.timedelta(), 'delay'] = datetime.timedelta()
+        df.delay = df.delay.astype('timedelta64[h]')
+        df = pd.merge(df, correction_factor, on=['delay', 'metric'], how='left')
+        df.loc[:, 'factor'].fillna(1, inplace=True)
+        df.value = df.value / df.factor
+
+        return df.drop(columns=['last_update', 'factor'])

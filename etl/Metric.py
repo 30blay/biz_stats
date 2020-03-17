@@ -212,7 +212,7 @@ class BikeshareMostPopStations(Metric):
         self.groups_enabled = False
 
     def _get(self, period):
-        most_pop = get_most_popular_bikeshare_stations(period.start, EventMode.totals, amplitude_con, self.n)
+        most_pop = get_most_popular_bikeshare_stations(period, EventMode.totals, amplitude_con, self.n)
         df = pd.DataFrame()
         for i in range(1, self.n+1):
             df['#'+str(i)+' station name'] = most_pop.Station[i]
@@ -354,19 +354,6 @@ class AgencyGoTrips(Metric):
 
     def _get(self, period, group):
         go_event = self._get_event(event_definitions.feed_go_trip, group)
-        df = get_event_on_period(go_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
-        feed_codes = get_feeds()[['feed_id', 'feed_code']].set_index('feed_id')
-        feed_codes.index = feed_codes.index.astype(str)
-        df.index = df.index.map(feed_codes.feed_code)
-        return df
-
-
-class AgencyStartGo(Metric):
-    def __init__(self):
-        super().__init__('Start Go', MetricType.AGENCY, '')
-
-    def _get(self, period, group):
-        go_event = self._get_event(event_definitions.feed_start_go, group)
         df = get_event_on_period(go_event, period, EventMode.totals, amplitude_con, AggregationType.NONE)
         feed_codes = get_feeds()[['feed_id', 'feed_code']].set_index('feed_id')
         feed_codes.index = feed_codes.index.astype(str)

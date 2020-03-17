@@ -145,17 +145,17 @@ def groupby_and_segment_from_new_user_event(event):
     return group_by, segment
 
 
-def get_most_popular_bikeshare_stations(date, mode, amplitude_connection, n):
+def get_most_popular_bikeshare_stations(period, mode, amplitude_connection, n):
     """ Get the most popular stations for each service, as defined by the stations which saw the most unlocks
     Args:
-        date: Any date in the month of interest
+        period: Any date in the month of interest
         mode: Amplitude mode ('Totals' or 'Uniques')
         amplitude_connection: AmplitudeRestApi object
         n: Get n most popular stations
     """
     event = event_definitions.bikeshare_unlocks()
     event.add_groupby(groupby_type='event', groupby_value='Station Name')
-    data = get_event_on_period(event, date, mode, amplitude_connection)
+    data = get_event_on_period(event, period, mode, amplitude_connection)
     df = pd.DataFrame({
         'Service': data.index.to_series().str.split(';').str[0],
         'Station': data.index.to_series().str.split(';').str[1],

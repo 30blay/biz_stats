@@ -178,12 +178,12 @@ def latest_metrics(date, gSheetId):
     warehouse = DataWarehouse(engine)
     rep = Report(date, gSheetId)
 
-    yearly = warehouse.get_period_stats(Period(date, PeriodType.YEAR), [
+    yearly = warehouse.slice_period(Period(date, PeriodType.YEAR), [
         AgencyRidership(),
         AgencyRevenue(),
     ])
 
-    monthly = warehouse.get_period_stats(Period(date, PeriodType.MONTH), [
+    monthly = warehouse.slice_period(Period(date, PeriodType.MONTH), [
         AgencyDar(),
         AgencyDau(),
         AgencyMau(),
