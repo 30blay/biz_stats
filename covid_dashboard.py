@@ -98,6 +98,7 @@ effect = effect.rename(columns={
     'country_codes': 'Country',
     'sub_country_codes': 'State',
 })
+effect.Municipality = effect.Municipality.str.split(',').str[0]
 
 effect = effect.replace([np.inf, -np.inf], np.nan)
 effect = effect.fillna('')

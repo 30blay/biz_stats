@@ -323,8 +323,14 @@ class DataWarehouse:
         df.index = df.index.map(feeds)
 
         if total:
-            df = df.append(df.sum().rename('Global'))
-
+            glob = df.sum().rename('Global')
+            feeds = self.get_feeds().set_index('feed_code').country_codes
+            df['country'] = df.index.map(feeds)
+            countries = df.groupby("country").sum()
+            df = df.append(countries[countries.index.isin(['CA', 'US'])], sort=False)
+            df = df.rename(index={'CA': 'Canada', 'US': 'United States'})
+            df = df.drop(columns='country')
+            df = df.append(glob)
         return df
 
     def get_top_routes_and_hits(self, period, this_period_last_year=False, n=3):
