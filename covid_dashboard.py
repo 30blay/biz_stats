@@ -14,14 +14,14 @@ metric = AgencyUncorrectedSessions()
 # metric = AgencyUniqueUsers()
 
 benchmark19 = warehouse.slice_metric(
-    pd.datetime(2019, 2, 1),
-    pd.datetime(2019, 2, 14),
+    pd.datetime(2019, 2, 15),
+    pd.datetime(2019, 2, 28),
     PeriodType.DAY,
     metric, total=True)
 
 benchmark20 = warehouse.slice_metric(
-    pd.datetime(2020, 2, 1),
-    pd.datetime(2020, 2, 14),
+    pd.datetime(2020, 2, 15),
+    pd.datetime(2020, 2, 28),
     PeriodType.DAY,
     metric, total=True)
 
@@ -76,10 +76,10 @@ effect[today_hourly.columns[-1]] = ((1+this_hour_change_since_last_week) * (1+ef
 effect = effect.dropna(axis=1, how='all').dropna()
 
 # correct using global effect up to 2/28
-global_effect = copy.copy(effect.iloc[-1, :-2].T)
-effect_stop = pd.datetime(2020, 2, 28)
-global_effect = global_effect[global_effect.index < effect_stop].mean()
-effect = effect.sub(global_effect)
+# global_effect = copy.copy(effect.iloc[-1, :-2].T)
+# effect_stop = pd.datetime(2020, 2, 28)
+# global_effect = global_effect[global_effect.index < effect_stop].mean()
+# effect = effect.sub(global_effect)
 
 # reverse, most recent on the left
 effect = effect.iloc[:, ::-1]
