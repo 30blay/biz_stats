@@ -8,13 +8,7 @@ import copy
 import pycountry
 import os
 
-# from covid_warehouse import warehouse
-
-#
-cur_dir = os.path.dirname(os.path.abspath(__file__))
-engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
-warehouse = DataWarehouse(engine)
-
+from covid_warehouse import warehouse
 
 metric = AgencyUncorrectedSessions()
 # metric = AgencyUniqueUsers()
@@ -80,6 +74,12 @@ this_hour_change_since_last_week = (today_hourly.iloc[:, -1]/week_ago_hourly.ilo
 effect['today so far'] = ((1+today_change_since_last_week) * (1+effect[week_ago]) - 1)
 effect[today_hourly.columns[-1]] = ((1+this_hour_change_since_last_week) * (1+effect[week_ago]) - 1)
 effect = effect.dropna(axis=1, how='all').dropna()
+
+# correct using global effect up to 2/28
+global_effect = copy.copy(effect.iloc[-1, :-2].T)
+effect_stop = pd.datetime(2020, 2, 28)
+global_effect = global_effect[global_effect.index < effect_stop].mean()
+effect = effect.sub(global_effect)
 
 # reverse, most recent on the left
 effect = effect.iloc[:, ::-1]
