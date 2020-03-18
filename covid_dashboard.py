@@ -103,6 +103,8 @@ effect.Municipality = effect.Municipality.str.split(',').str[0]
 effect = effect.replace([np.inf, -np.inf], np.nan)
 effect = effect.fillna('')
 
+# sort by municipality
+effect = effect.sort_values('Municipality')
 
 # export to google sheet
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
