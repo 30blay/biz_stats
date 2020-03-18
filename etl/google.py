@@ -16,7 +16,7 @@ def create_service():
 
     cred = None
 
-    pickle_file = 'token_'+API_SERVICE_NAME+'_'+API_VERSION+'.pickle'
+    pickle_file = '{}/token_{}_{}.pickle'.format(cur_dir, API_SERVICE_NAME, API_VERSION)
 
     if os.path.exists(pickle_file):
         with open(pickle_file, 'rb') as token:
