@@ -8,34 +8,40 @@ import copy
 import pycountry
 import os
 
-from covid_warehouse import warehouse
+# from covid_warehouse import warehouse
+
+#
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
+warehouse = DataWarehouse(engine)
+
 
 metric = AgencyUncorrectedSessions()
 # metric = AgencyUniqueUsers()
 
-jan19 = warehouse.slice_metric(
-    pd.datetime(2019, 1, 3),
-    pd.datetime(2019, 1, 31),
+benchmark19 = warehouse.slice_metric(
+    pd.datetime(2019, 2, 1),
+    pd.datetime(2019, 2, 14),
     PeriodType.DAY,
-    metric)
+    metric, total=True)
 
-jan20 = warehouse.slice_metric(
-    pd.datetime(2020, 1, 3),
-    pd.datetime(2020, 1, 31),
+benchmark20 = warehouse.slice_metric(
+    pd.datetime(2020, 2, 1),
+    pd.datetime(2020, 2, 14),
     PeriodType.DAY,
-    metric)
+    metric, total=True)
 
 mar19 = warehouse.slice_metric(
     pd.datetime(2019, 2, 8),
     pd.datetime(2019, 3, 31),
     PeriodType.DAY,
-    metric)
+    metric, total=True)
 
 mar20 = warehouse.slice_metric(
     pd.datetime(2020, 2, 15),
     pd.datetime.now() - dt.timedelta(days=1),
     PeriodType.DAY,
-    metric)
+    metric, total=True)
 
 previous_hour = pd.datetime.now() - dt.timedelta(hours=1)
 start_of_today = previous_hour.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -45,20 +51,20 @@ week_ago_hourly = warehouse.slice_metric(
     week_ago,
     previous_hour - dt.timedelta(days=7),
     PeriodType.HOUR,
-    metric)
+    metric, total=True)
 
 today_hourly = warehouse.slice_metric(
     start_of_today,
     previous_hour,
     PeriodType.HOUR,
-    metric)
+    metric, total=True)
 
 # filter out small agencies
 minimum_events = 4000
-jan19 = jan19[jan19.mean(axis=1) > minimum_events]
+benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
 
 # get January change from 2019 to 2020
-yoy = jan20.mean(axis=1) / jan19.mean(axis=1)
+yoy = benchmark20.mean(axis=1) / benchmark19.mean(axis=1)
 
 mar19_yoy = mar19.multiply(yoy, axis=0)
 expected_mar20 = copy.copy(mar20)
@@ -92,6 +98,8 @@ effect = effect.rename(columns={
     'country_codes': 'Country',
     'sub_country_codes': 'State',
 })
+
+effect = effect.replace([np.inf, -np.inf], np.nan)
 effect = effect.fillna('')
 
 

@@ -21,11 +21,23 @@ metrics = [
 ]
 
 # warehouse.load_between(
+#     pd.datetime(2019, 2, 1),
+#     pd.datetime(2019, 2, 14),
+#     PeriodType.DAY,
+#     metrics)
+#
+# warehouse.load_between(
+#     pd.datetime(2020, 2, 1),
+#     pd.datetime(2020, 2, 14),
+#     PeriodType.DAY,
+#     metrics)
+#
+# warehouse.load_between(
 #     pd.datetime(2019, 2, 7),
 #     pd.datetime(2019, 5, 30),
 #     PeriodType.DAY,
 #     metrics)
-
+#
 warehouse.load_between(
     pd.datetime.now() - datetime.timedelta(days=4),
     pd.datetime.now(),

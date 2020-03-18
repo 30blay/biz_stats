@@ -302,7 +302,7 @@ class DataWarehouse:
         session.close()
         return df
 
-    def slice_metric(self, start, end, period_type, metric):
+    def slice_metric(self, start, end, period_type, metric, total=False):
         periods = self.periods_between(start, end, period_type)
         period_ids = [self._get_period_id(period) for period in periods]
         feeds = self.get_feeds().set_index('feed_id').feed_code
@@ -321,6 +321,9 @@ class DataWarehouse:
 
         df = df.pivot(index='feed_id', columns='start', values='value')
         df.index = df.index.map(feeds)
+
+        if total:
+            df = df.append(df.sum().rename('Global'))
 
         return df
 
