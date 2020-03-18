@@ -289,6 +289,19 @@ class AgencyDownloads(Metric):
         return get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
 
 
+class AgencyTapNearbyService(Metric):
+    def __init__(self):
+        super().__init__('Tap Nearby Service', MetricType.AGENCY, '')
+
+    def _get(self, period, group):
+        feeds = get_feeds().set_index('feed_id').feed_code
+        event = self._get_event(event_definitions.feed_tap_nearby_service, group)
+        df = get_event_on_period(event, period, EventMode.uniques, amplitude_con, AggregationType.NONE)
+        df = df[df.index != '(none)']
+        df.index = df.index.map(int).map(feeds)
+        return df
+
+
 class AgencyMau(Metric):
     def __init__(self, name='MAU'):
         self.aggregation_type = AggregationType.NONE

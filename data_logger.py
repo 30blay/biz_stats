@@ -24,3 +24,13 @@ warehouse.load_between(measure_start, stop, PeriodType.HOUR, [
         AgencyUniqueUsers(),
         AgencyUncorrectedSessions(),
     ])
+
+# Tap nearby only
+measure_start = datetime.datetime(2020, 3, 17)
+measure_stop = datetime.datetime(2020, 3, 18, hour=20, minute=0)
+
+stop = min(now, measure_stop)
+
+warehouse.load_between(measure_start, stop, PeriodType.HOUR, [
+        AgencyTapNearbyService()
+    ])
