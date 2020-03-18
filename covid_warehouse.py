@@ -1,10 +1,11 @@
 from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
-from etl.date_utils import Period, PeriodType, last_month
 from etl.Metric import *
 import datetime
+import os
 
-engine = create_engine('sqlite:///warehouse.db')
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
 
 warehouse = DataWarehouse(engine)
 warehouse.create_all()
@@ -20,25 +21,25 @@ metrics = [
 ]
 
 # warehouse.load_between(
-#     pd.datetime(2019, 2, 25),
+#     pd.datetime(2019, 2, 7),
 #     pd.datetime(2019, 5, 30),
 #     PeriodType.DAY,
 #     metrics)
 
 warehouse.load_between(
-    pd.datetime.now() - datetime.timedelta(days=8),
+    pd.datetime.now() - datetime.timedelta(days=4),
     pd.datetime.now(),
     PeriodType.DAY,
     metrics)
 
 warehouse.load_between(
-    pd.datetime.now() - datetime.timedelta(days=8),
-    pd.datetime.now() - datetime.timedelta(days=6),
+    (pd.datetime.now() - datetime.timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0),
+    (pd.datetime.now() - datetime.timedelta(days=7)),
     PeriodType.HOUR,
     metrics)
 
 warehouse.load_between(
-    pd.datetime.now() - datetime.timedelta(days=1),
+    pd.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
     pd.datetime.now(),
     PeriodType.HOUR,
     metrics)

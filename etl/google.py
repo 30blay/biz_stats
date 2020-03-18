@@ -8,7 +8,8 @@ from google.auth.transport.requests import Request
 
 def create_service():
     """ create quickstart service and save credentials as a pickle file """
-    CLIENT_SECRET_FILE = 'client_secret.json'
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    CLIENT_SECRET_FILE = '{}/client_secret.json'.format(cur_dir)
     API_SERVICE_NAME = 'sheets'
     API_VERSION = 'v4'
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']

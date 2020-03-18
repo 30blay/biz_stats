@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import select
 
 import datetime
+import os
 import pandas as pd
 from tqdm import tqdm
 from etl.date_utils import last_month, PeriodType
@@ -405,7 +406,8 @@ class DataWarehouse:
         return df
 
     def correct_for_delayed_reporting(self, df):
-        correction_factor = pd.read_csv('etl/amplitude_delay.csv')
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        correction_factor = pd.read_csv('{}/amplitude_delay.csv'.format(cur_dir))
         df['delay'] = df.last_update - df.start
         df.loc[df.delay < datetime.timedelta(), 'delay'] = datetime.timedelta()
         df.delay = df.delay.astype('timedelta64[h]')

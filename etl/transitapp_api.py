@@ -100,7 +100,7 @@ def get_feeds():
     in_beta_3 = df.in_beta == 3
     df = df[~(duplicated & in_beta_3)]
 
-    return df[['feed_id', 'feed_code', 'feed_name', 'feed_network_name', 'bounds', 'feed_location', 'country_codes']]
+    return df[['feed_id', 'feed_code', 'feed_name', 'feed_network_name', 'bounds', 'feed_location', 'country_codes', 'sub_country_codes']]
 
 
 @lru_cache()
