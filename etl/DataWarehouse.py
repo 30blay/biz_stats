@@ -302,7 +302,7 @@ class DataWarehouse:
         session.close()
         return df
 
-    def slice_metric(self, start, end, period_type, metric, total=False):
+    def slice_metric(self, start, end, period_type, metric):
         periods = self.periods_between(start, end, period_type)
         period_ids = [self._get_period_id(period) for period in periods]
         feeds = self.get_feeds().set_index('feed_id').feed_code
@@ -322,15 +322,6 @@ class DataWarehouse:
         df = df.pivot(index='feed_id', columns='start', values='value')
         df.index = df.index.map(feeds)
 
-        if total:
-            glob = df.sum().rename('Global')
-            feeds = self.get_feeds().set_index('feed_code').country_codes
-            df['country'] = df.index.map(feeds)
-            countries = df.groupby("country").sum()
-            df = df.append(countries[countries.index.isin(['CA', 'US'])], sort=False)
-            df = df.rename(index={'CA': 'Canada', 'US': 'United States'})
-            df = df.drop(columns='country')
-            df = df.append(glob)
         return df
 
     def get_top_routes_and_hits(self, period, this_period_last_year=False, n=3):

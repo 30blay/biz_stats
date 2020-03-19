@@ -10,6 +10,19 @@ import os
 
 from covid_warehouse import warehouse
 
+
+def add_aggregations(df):
+    glob = df.sum().rename('Global')
+    feeds = get_feeds().set_index('feed_code').country_codes
+    df['country'] = df.index.map(feeds)
+    countries = df.groupby("country").sum()
+    df = df.append(countries[countries.index.isin(['CA', 'US', 'FR'])], sort=False)
+    df = df.rename(index={'CA': 'Canada', 'US': 'United States', 'FR': 'France'})
+    df = df.drop(columns='country')
+    df = df.append(glob)
+    return df
+
+
 metric = AgencyUncorrectedSessions()
 # metric = AgencyUniqueUsers()
 
@@ -17,25 +30,29 @@ benchmark19 = warehouse.slice_metric(
     pd.datetime(2019, 2, 15),
     pd.datetime(2019, 2, 28),
     PeriodType.DAY,
-    metric, total=True)
+    metric)
+benchmark19 = add_aggregations(benchmark19)
 
 benchmark20 = warehouse.slice_metric(
     pd.datetime(2020, 2, 15),
     pd.datetime(2020, 2, 28),
     PeriodType.DAY,
-    metric, total=True)
+    metric)
+benchmark20 = add_aggregations(benchmark20)
 
 mar19 = warehouse.slice_metric(
     pd.datetime(2019, 2, 8),
     pd.datetime(2019, 3, 31),
     PeriodType.DAY,
-    metric, total=True)
+    metric)
+mar19 = add_aggregations(mar19)
 
 mar20 = warehouse.slice_metric(
     pd.datetime(2020, 2, 15),
     pd.datetime.now() - dt.timedelta(days=1),
     PeriodType.DAY,
-    metric, total=True)
+    metric)
+mar20 = add_aggregations(mar20)
 
 previous_hour = pd.datetime.now() - dt.timedelta(hours=1)
 start_of_today = previous_hour.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -45,13 +62,15 @@ week_ago_hourly = warehouse.slice_metric(
     week_ago,
     previous_hour - dt.timedelta(days=7),
     PeriodType.HOUR,
-    metric, total=True)
+    metric)
+week_ago_hourly = add_aggregations(week_ago_hourly)
 
 today_hourly = warehouse.slice_metric(
     start_of_today,
     previous_hour,
     PeriodType.HOUR,
-    metric, total=True)
+    metric)
+today_hourly = add_aggregations(today_hourly)
 
 # filter out small agencies
 minimum_events = 4000
