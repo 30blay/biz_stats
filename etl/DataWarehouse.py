@@ -413,6 +413,6 @@ class DataWarehouse:
         df.delay = df.delay.astype('timedelta64[h]')
         df = pd.merge(df, correction_factor, on=['delay', 'metric'], how='left')
         df.loc[:, 'factor'].fillna(1, inplace=True)
-        df.value = df.value / df.factor
+        df.value = df.value * df.factor
 
         return df.drop(columns=['last_update', 'factor'])
