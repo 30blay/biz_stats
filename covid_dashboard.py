@@ -20,7 +20,7 @@ for cities_mode in [True, False]:
         cities = df.groupby("Municipality").sum()
         df = df.append(countries[countries.index.isin(['CA', 'US', 'FR'])], sort=False)
         df = df.rename(index={'CA': 'Canada', 'US': 'United States', 'FR': 'France'})
-        df = df.drop(columns='country')
+        df = df.drop(columns=['country', 'Municipality'], errors='ignore')
         df = df.append(glob)
 
         if cities_mode:
