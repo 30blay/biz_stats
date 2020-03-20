@@ -13,13 +13,18 @@ from covid_warehouse import warehouse
 
 def add_aggregations(df):
     glob = df.sum().rename('Global')
-    feeds = get_feeds().set_index('feed_code').country_codes
-    df['country'] = df.index.map(feeds)
+    feeds = get_feeds().set_index('feed_code')[['country_codes', 'feed_location']]
+    df['country'] = df.index.map(feeds.country_codes)
+    df['city'] = df.index.map(feeds.feed_location)
     countries = df.groupby("country").sum()
+    cities = df.groupby("city").sum()
     df = df.append(countries[countries.index.isin(['CA', 'US', 'FR'])], sort=False)
     df = df.rename(index={'CA': 'Canada', 'US': 'United States', 'FR': 'France'})
     df = df.drop(columns='country')
     df = df.append(glob)
+
+    if True:
+        df = cities
     return df
 
 
@@ -127,5 +132,6 @@ effect = effect.sort_values('Municipality')
 
 # export to google sheet
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
+staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 effect.columns = effect.columns.map(str)
-export_data_to_sheet(effect, None, gsheet, sheet='raw')
+export_data_to_sheet(effect, None, staging, sheet='cities')
