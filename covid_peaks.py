@@ -1,117 +1,138 @@
 from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
-from etl.date_utils import Period, PeriodType, last_month
 from etl.Metric import *
 from etl.google import export_data_to_sheet
 import datetime as dt
-import copy
-import pycountry
+import pytz
+from timezonefinder import TimezoneFinder
 import os
+from copy import copy
+
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
-warehouse = DataWarehouse(engine)
-
+warehouse = DataWarehouse(engine, verbose=True, amplitude_stops_changing=dt.timedelta(days=20))
 metric = AgencyUncorrectedSessions()
 
-benchmark19 = warehouse.slice_metric(
-    pd.datetime(2019, 2, 15),
-    pd.datetime(2019, 2, 28),
-    PeriodType.DAY,
+tf = TimezoneFinder()
+
+feeds = get_feeds().set_index('feed_code')['bounds']
+feeds = pd.DataFrame(list(feeds), index=feeds.index)
+feeds['lat'] = (feeds.min_lat + feeds.max_lat) / 2
+feeds['lon'] = (feeds.min_lon + feeds.max_lon) / 2
+feeds = feeds.dropna()
+feeds['tz_name'] = [tf.timezone_at(lat=lat, lng=lon) for lat, lon in zip(feeds.lat, feeds.lon)]
+feeds = feeds.dropna()
+
+
+def add_aggregations(df):
+    glob = df.sum().rename('All Cities')
+    feeds = get_feeds().set_index('feed_code')[['country_codes', 'feed_location']]
+    df['country'] = df.index.map(feeds.country_codes)
+    df['Municipality'] = df.index.map(feeds.feed_location)
+    countries = df.groupby("country").sum()
+    cities = df.groupby("Municipality").sum()
+    df = df.append(countries[countries.index.isin(['CA', 'US', 'FR'])], sort=False)
+    df = df.rename(index={'CA': 'Canada', 'US': 'United States', 'FR': 'France'})
+    df = df.drop(columns=['country', 'Municipality'], errors='ignore')
+    df = df.append(glob)
+
+    cities_mode = True
+    if cities_mode:
+        df = cities
+        df = df.append(glob)
+    return df
+
+
+def get_local_time(df):
+    df = df.dropna()
+    df.columns = [pytz.timezone('America/Toronto').localize(start) for start in df.columns]
+    df.reset_index(inplace=True)
+
+    unstacked = df.melt(id_vars='feed_code', var_name='start')
+    unstacked['tz'] = unstacked.feed_code.map(feeds.tz_name)
+    unstacked['corrected_start'] = [a_start.astimezone(tz).replace(tzinfo=None) for a_start, tz in zip(unstacked.start, unstacked.tz)]
+
+    df = unstacked.pivot(index='feed_code', columns='corrected_start', values='value')
+    # ignore 30 minute timezones
+    df = df[filter(lambda c: c.minute != 30, df.columns)]
+    df = df.dropna(how='all')
+
+    return df
+
+
+def get_local_hourly_slice(start, end, metric):
+    df = warehouse.slice_metric(
+        start - dt.timedelta(hours=18),
+        end + dt.timedelta(hours=6),
+        PeriodType.HOUR,
+        metric)
+    df = get_local_time(df)
+    keepers = [date for date in df.columns if start <= date <= end]
+    df = df[keepers]
+    return df
+
+
+def can_and_us_only(list_of_dfs):
+    ret = []
+    countries = get_feeds().set_index('feed_code').country_codes
+    for df in list_of_dfs:
+        df['country'] = df.index.map(countries)
+        df = df[df.country.isin(['US', 'CAN'])]
+        ret.append(df.drop(columns='country'))
+    return ret
+
+
+def format_time(list_of_dfs):
+    ret = []
+    for df in list_of_dfs:
+        df.columns = df.columns.map(lambda date: date + dt.timedelta(minutes=30))
+        df.columns = df.columns.map(lambda date: date.strftime('%A %H:%M'))
+        ret.append(df)
+    return ret
+
+
+normal_slice = get_local_hourly_slice(
+    pd.datetime(2020, 2, 23),
+    pd.datetime(2020, 2, 29, 23),
     metric)
 
-benchmark20 = warehouse.slice_metric(
-    pd.datetime(2020, 2, 15),
-    pd.datetime(2020, 2, 28),
-    PeriodType.DAY,
+
+hourly_slice = get_local_hourly_slice(
+    pd.datetime(2020, 3, 9),
+    (pd.datetime.today() - dt.timedelta(days=2)).replace(hour=23, minute=59),
     metric)
 
-mar19 = warehouse.slice_metric(
-    pd.datetime(2019, 2, 8),
-    pd.datetime(2019, 3, 31),
-    PeriodType.DAY,
-    metric)
-mar19 = add_aggregations(mar19)
+normal = add_aggregations(normal_slice)
+hourly = add_aggregations(hourly_slice)
 
-mar20 = warehouse.slice_metric(
-    pd.datetime(2020, 2, 15),
-    pd.datetime.now() - dt.timedelta(days=1),
-    PeriodType.DAY,
-    metric)
-mar20 = add_aggregations(mar20)
+minimum_events_per_hour = 200
+normal = normal[normal.mean(axis=1) > minimum_events_per_hour]
 
-previous_hour = pd.datetime.now() - dt.timedelta(hours=1)
-start_of_today = previous_hour.replace(hour=0, minute=0, second=0, microsecond=0)
+# all last week
+hourly = hourly.reset_index().melt(id_vars='Municipality', value_name='actual')
+week_ago = copy(hourly)
+week_ago.corrected_start = [date + dt.timedelta(days=7) for date in week_ago.corrected_start]
+week_ago = week_ago.rename(columns={'actual': 'week_ago'})
+hourly = pd.merge(hourly, week_ago, on=['Municipality', 'corrected_start'])
 
-week_ago = start_of_today - dt.timedelta(days=7)
-week_ago_hourly = warehouse.slice_metric(
-    week_ago,
-    previous_hour - dt.timedelta(days=7),
-    PeriodType.HOUR,
-    metric)
-week_ago_hourly = add_aggregations(week_ago_hourly)
+# add normal
+normal = normal.reset_index().melt(id_vars='Municipality', value_name='normal')
+normal['weekday'] = normal.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
+normal = normal.drop(columns='corrected_start')
+hourly['weekday'] = hourly.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
+peaks = pd.merge(hourly, normal, on=['Municipality', 'weekday']).drop(columns='weekday')
 
-today_hourly = warehouse.slice_metric(
-    start_of_today,
-    previous_hour,
-    PeriodType.HOUR,
-    metric)
-today_hourly = add_aggregations(today_hourly)
+peaks = peaks.rename(columns={'corrected_start': 'time'})
+peaks['day'] = peaks.time.dt.strftime('%Y-%m-%d')
+peaks.time = peaks.time + dt.timedelta(minutes=30)
+peaks.time = peaks.time.dt.hour + peaks.time.dt.minute / 60
+peaks = peaks.replace([np.inf, -np.inf], np.nan)
+peaks = peaks.fillna('')
+peaks = peaks.set_index('Municipality')
 
-# filter out small agencies
-minimum_events = 4000
-benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
-
-# get January change from 2019 to 2020
-yoy = benchmark20.mean(axis=1) / benchmark19.mean(axis=1)
-
-mar19_yoy = mar19.multiply(yoy, axis=0)
-expected_mar20 = copy.copy(mar20)
-for date in mar20.columns:
-    expected_mar20[date] = (mar19_yoy[date-dt.timedelta(days=7*51)] +
-                            mar19_yoy[date-dt.timedelta(days=7*52)] +
-                            mar19_yoy[date-dt.timedelta(days=7*53)])\
-                           / 3
-
-effect = (mar20/expected_mar20 - 1)
-today_change_since_last_week = (today_hourly.mean(axis=1)/week_ago_hourly.mean(axis=1) - 1)
-this_hour_change_since_last_week = (today_hourly.iloc[:, -1]/week_ago_hourly.iloc[:, -1] - 1)
-effect['today so far'] = ((1+today_change_since_last_week) * (1+effect[week_ago]) - 1)
-effect[today_hourly.columns[-1]] = ((1+this_hour_change_since_last_week) * (1+effect[week_ago]) - 1)
-effect = effect.dropna(axis=1, how='all').dropna()
-
-# correct using global effect up to 2/28
-# global_effect = copy.copy(effect.iloc[-1, :-2].T)
-# effect_stop = pd.datetime(2020, 2, 28)
-# global_effect = global_effect[global_effect.index < effect_stop].mean()
-# effect = effect.sub(global_effect)
-
-# reverse, most recent on the left
-effect = effect.iloc[:, ::-1]
-
-# add feed metadata
-feeds = copy.copy(warehouse.get_feeds())
-feeds = feeds[feeds.country_codes != 'ZZ']
-feeds.country_codes.replace('EQ', 'EC', inplace=True)
-feeds = feeds.set_index('feed_code')[['feed_name', 'feed_location', 'country_codes', 'sub_country_codes']]
-feeds.loc[:, 'country_codes'] = feeds.country_codes.map(lambda code: pycountry.countries.get(alpha_2=code).name)
-# feeds['State'] = [pycountry.subdivisions.get(code='{}-{}'.format(c, sub_c)).name for c, sub_c in zip(feeds.country_codes, feeds.sub_country_codes)]
-effect = pd.merge(feeds, effect, left_index=True, right_index=True, how='right')
-effect = effect.rename(columns={
-    'feed_name': 'Name',
-    'feed_location': 'Municipality',
-    'country_codes': 'Country',
-    'sub_country_codes': 'State',
-})
-effect.Municipality = effect.Municipality.str.split(',').str[0]
-
-effect = effect.replace([np.inf, -np.inf], np.nan)
-effect = effect.fillna('')
-
-# sort by municipality
-effect = effect.sort_values('Municipality')
 
 # export to google sheet
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
-effect.columns = effect.columns.map(str)
-export_data_to_sheet(effect, None, gsheet, sheet='raw')
+staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
+export_data_to_sheet(peaks, None, staging, sheet='peaks', bottom_warning=False)
