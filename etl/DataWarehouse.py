@@ -54,7 +54,7 @@ class RouteFact(Base):
 
 
 class DataWarehouse:
-    def __init__(self, engine, verbose=False):
+    def __init__(self, engine, verbose=False, amplitude_stops_changing=datetime.timedelta(days=60), recency_limit_minutes=40):
         self.engine = engine
         self.verbose = verbose
         self.declarative_base = Base
@@ -63,6 +63,8 @@ class DataWarehouse:
         self.sharing_systems = None
         self.routes = None
         self.feed_groups = None
+        self.recency_limit = datetime.timedelta(minutes=recency_limit_minutes)
+        self.amplitude_stops_changing = amplitude_stops_changing
 
     def get_feeds(self):
         if self.feeds is None:
@@ -166,7 +168,7 @@ class DataWarehouse:
 
     def load(self, period_list, metric_list):
         for metric in metric_list:
-            if metric.entity_type not in (MetricType.AGENCY, MetricType.ROUTE):
+            if metric.entity_type not in (MetricType.AGENCY, MetricType.SHARING_SERVICE, MetricType.ROUTE):
                 raise ValueError('Unsupported metric type {}'.format(metric.entity_type))
 
             groups = None
@@ -181,6 +183,9 @@ class DataWarehouse:
 
                 if period_id is None:
                     raise ValueError('Requested period is too recent')
+                
+                if self._no_need_to_recalculate(period_id, metric, groups):
+                    continue
 
                 df = metric.get(period, groups, False)
                 df = df.dropna()
@@ -190,6 +195,7 @@ class DataWarehouse:
 
                 make_facts = {
                     MetricType.AGENCY: self._make_agency_facts,
+                    MetricType.SHARING_SERVICE: self._make_sharing_facts,
                     MetricType.ROUTE:  self._make_route_fact,
                 }
                 update_facts = make_facts[metric.entity_type](metric, period_id, df)
@@ -208,6 +214,27 @@ class DataWarehouse:
         feed_id_map = feed_id_map[~pd.isna(feed_id_map.index)]
 
         df['feed_id'] = df.index.map(feeds)
+        df['entity_id'] = df.feed_id.map(feed_id_map)
+        df = df.dropna(subset=['entity_id'])
+
+        update_facts = []
+        for _, fact in df.iterrows():
+            update_facts.append(AgencyFact(
+                period_id=period_id,
+                metric=metric.name,
+                entity_id=int(fact['entity_id']),
+                value=str(fact.iloc[0]),
+            ))
+        return update_facts
+
+    def _make_sharing_facts(self, metric, period_id, df):
+        entities_df = pd.read_sql_table('entities', self.connection)
+
+        sharing_systems = get_sharing_systems().set_index('name').system_id
+        feed_id_map = entities_df.set_index('sharing_system_id').entity_id
+        feed_id_map = feed_id_map[~pd.isna(feed_id_map.index)]
+
+        df['sharing_system_id'] = df.index.map(sharing_systems)
         df['entity_id'] = df.feed_id.map(feed_id_map)
         df = df.dropna(subset=['entity_id'])
 
@@ -307,6 +334,9 @@ class DataWarehouse:
         period_ids = [self._get_period_id(period) for period in periods]
         feeds = self.get_feeds().set_index('feed_id').feed_code
 
+        # nothing will happen if they are already there
+        self.load(periods, [metric])
+
         session = Session(self.engine)
         query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
             .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
@@ -321,6 +351,7 @@ class DataWarehouse:
 
         df = df.pivot(index='feed_id', columns='start', values='value')
         df.index = df.index.map(feeds)
+        df.index.rename('feed_code', inplace=True)
 
         return df
 
@@ -416,3 +447,24 @@ class DataWarehouse:
         df.value = df.value * df.factor
 
         return df.drop(columns=['last_update', 'factor'])
+
+    def _no_need_to_recalculate(self, period_id, metric, groups):
+        if groups is not None:
+            raise ValueError('groups not supported yet')
+
+        session = Session(self.engine)
+
+        query = session.query(Period.start, AgencyFact.last_update) \
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
+            .filter(AgencyFact.period_id == period_id, AgencyFact.metric == metric.name) \
+            .order_by(AgencyFact.last_update.desc())
+        most_recent = query.first()
+        if most_recent is None:
+            return False
+
+        recency = datetime.datetime.now() - most_recent.last_update
+        if recency < self.recency_limit:
+            return True
+
+        delay = most_recent.last_update - most_recent.start
+        return delay > self.amplitude_stops_changing

@@ -41,7 +41,7 @@ def create_service():
     return None
 
 
-def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1'):
+def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bottom_warning=True):
     """
     Export a pandas DataFrame to a google sheet.
     The index will be included as a column named index
@@ -79,14 +79,15 @@ def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1'):
             values=df.reset_index().T.reset_index().T.values.tolist())
     ).execute()
 
-    response = service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        valueInputOption='RAW',
-        range='{}!{}'.format(sheet, cell),
-        body=dict(
-            majorDimension='ROWS',
-            values=[[''],
-                    ['Updated on ' + str(datetime.date.today())],
-                    ['Note : This spreadsheet gets overwritten on a regular basis']
-                    ])
-    ).execute()
+    if bottom_warning:
+        response = service.spreadsheets().values().append(
+            spreadsheetId=spreadsheet_id,
+            valueInputOption='RAW',
+            range='{}!{}'.format(sheet, cell),
+            body=dict(
+                majorDimension='ROWS',
+                values=[[''],
+                        ['Updated on ' + str(datetime.date.today())],
+                        ['Note : This spreadsheet gets overwritten on a regular basis']
+                        ])
+        ).execute()

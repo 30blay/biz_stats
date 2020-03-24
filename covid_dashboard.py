@@ -7,8 +7,16 @@ import datetime as dt
 import copy
 import pycountry
 import os
+import re
 
-from covid_warehouse import warehouse
+
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
+
+warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
+warehouse.create_all()
+warehouse.add_periods()
+warehouse.add_entities()
 
 for cities_mode in [True, False]:
     def add_aggregations(df):
@@ -114,16 +122,25 @@ for cities_mode in [True, False]:
         feeds = feeds[feeds.country_codes != 'ZZ']
         feeds.country_codes.replace('EQ', 'EC', inplace=True)
         feeds = feeds.set_index('feed_code')[['feed_name', 'feed_location', 'country_codes', 'sub_country_codes']]
-        feeds.loc[:, 'country_codes'] = feeds.country_codes.map(lambda code: pycountry.countries.get(alpha_2=code).name)
-        # feeds['State'] = [pycountry.subdivisions.get(code='{}-{}'.format(c, sub_c)).name for c, sub_c in zip(feeds.country_codes, feeds.sub_country_codes)]
+        feeds.loc[:, 'Country'] = feeds.country_codes.map(lambda code: pycountry.countries.get(alpha_2=code).name)
+        feeds['State'] = None
+        for i, row in feeds.iterrows():
+            try:
+                codes = re.split(';|,', row.sub_country_codes.replace(' ',''))
+                states = [pycountry.subdivisions.get(code='{}-{}'.format(row.country_codes, sub_c)).name for sub_c in codes]
+                states = ', '.join(states)
+                feeds.at[i, 'State'] = states
+            except Exception:
+                continue
         effect = pd.merge(feeds, effect, left_index=True, right_index=True, how='right')
         effect = effect.rename(columns={
             'feed_name': 'Name',
             'feed_location': 'Municipality',
-            'country_codes': 'Country',
-            'sub_country_codes': 'State',
         })
+        # remove the state that sometimes comes after the city
         effect.Municipality = effect.Municipality.str.split(',').str[0]
+
+        effect = effect.drop(columns=['country_codes', 'sub_country_codes'])
 
     effect = effect.replace([np.inf, -np.inf], np.nan)
     effect = effect.fillna('')
