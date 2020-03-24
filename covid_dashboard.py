@@ -47,7 +47,7 @@ for cities_mode in [True, False]:
 
     mar19 = warehouse.slice_metric(
         pd.datetime(2019, 2, 8),
-        pd.datetime(2019, 3, 31),
+        pd.datetime(2019, 10, 30),
         PeriodType.DAY,
         metric)
     mar19 = add_aggregations(mar19)

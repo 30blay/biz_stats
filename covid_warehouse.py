@@ -34,7 +34,7 @@ metrics = [
 #
 # warehouse.load_between(
 #     pd.datetime(2019, 2, 7),
-#     pd.datetime(2019, 5, 30),
+#     pd.datetime(2019, 10, 31),
 #     PeriodType.DAY,
 #     metrics)
 #

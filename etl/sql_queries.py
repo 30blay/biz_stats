@@ -5,7 +5,6 @@ from .transitapp_api import get_map_layer_id, get_feeds, get_routes
 
 
 stats_connection_str = 'mysql+pymysql://readonly:EQgK}cNxev$i6mr@localhost:3306/transit_stats_production'
-map_layer_ids = "(1, 9, 11, 15, 36, 537, 541, 550, 551, 561, 578, 589, 590, 649, 1012, 552, 4, 1007, 464, 560, 12)"
 
 
 class Connector:
@@ -20,10 +19,7 @@ class Connector:
         sales_sql = '''
         SELECT map_layer_id, item_name, SUM(item_count) AS Passes, SUM(total) AS Revenue
         FROM transit_stats_production.purchase
-        WHERE item_name IS NOT NULL
-        AND item_name <> ''
-        AND item_name NOT LIKE "%%adeau%%"
-        AND map_layer_id IN ''' + map_layer_ids + '''
+        WHERE item_name NOT LIKE "%%adeau%%"
         AND timestamp BETWEEN \'''' + start + '''\' AND \'''' + end + '''\'
         GROUP BY map_layer_id, item_name;
         '''

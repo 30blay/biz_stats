@@ -192,7 +192,7 @@ class BikeshareSales(Metric):
         self.groups_enabled = False
 
     def _get(self, period):
-        sales = sql_con.get_sales_data(period, period.end)
+        sales = sql_con.get_sales_data(period.start, period.end)
         return sales.groupby('service').sum()[self.interest_vars]
 
 
