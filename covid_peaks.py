@@ -25,7 +25,8 @@ feeds['tz_name'] = [tf.timezone_at(lat=lat, lng=lon) for lat, lon in zip(feeds.l
 feeds = feeds.dropna()
 
 
-def add_aggregations(df):
+def add_aggregations(df_):
+    df = copy(df_)
     glob = df.sum().rename('All Cities')
     feeds = get_feeds().set_index('feed_code')[['country_codes', 'feed_location']]
     df['country'] = df.index.map(feeds.country_codes)
@@ -40,6 +41,7 @@ def add_aggregations(df):
     cities_mode = True
     if cities_mode:
         df = cities
+        df = df[df.index != 'California']
         df = df.append(glob)
     return df
 
@@ -92,36 +94,64 @@ def format_time(list_of_dfs):
     return ret
 
 
-normal_slice = get_local_hourly_slice(
-    pd.datetime(2020, 2, 23),
-    pd.datetime(2020, 2, 29, 23),
-    metric)
+start = pd.datetime(2020, 3, 16)
+end = (pd.datetime.today() - dt.timedelta(days=2)).replace(hour=23, minute=59)
 
+benchmark19 = warehouse.slice_metric(
+    pd.datetime(2019, 2, 15),
+    pd.datetime(2019, 2, 28),
+    PeriodType.DAY,
+    metric)
+benchmark19 = add_aggregations(benchmark19)
+
+benchmark20 = warehouse.slice_metric(
+    pd.datetime(2020, 2, 15),
+    pd.datetime(2020, 2, 28),
+    PeriodType.DAY,
+    metric)
+benchmark20 = add_aggregations(benchmark20)
+
+# filter out small cities
+minimum_events = 8000
+benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
+
+yoy = benchmark20.mean(axis=1) / benchmark19.mean(axis=1)
+
+last_year_slice = get_local_hourly_slice(
+    start - dt.timedelta(days=7*53),
+    end - dt.timedelta(days=7*51),
+    metric)
 
 hourly_slice = get_local_hourly_slice(
-    pd.datetime(2020, 3, 9),
-    (pd.datetime.today() - dt.timedelta(days=2)).replace(hour=23, minute=59),
+    start - dt.timedelta(days=7),
+    end,
     metric)
 
-normal = add_aggregations(normal_slice)
-hourly = add_aggregations(hourly_slice)
+last_year = add_aggregations(last_year_slice)
+this_year = add_aggregations(hourly_slice)
 
-minimum_events_per_hour = 200
-normal = normal[normal.mean(axis=1) > minimum_events_per_hour]
+last_year_yoy = last_year.multiply(yoy, axis=0)
+expected = pd.DataFrame()
+for date in [date for date in this_year.columns if date >= start]:
+    expected[date] = (last_year_yoy[date-dt.timedelta(days=7*51)] +
+                      last_year_yoy[date-dt.timedelta(days=7*52)] +
+                      last_year_yoy[date-dt.timedelta(days=7*53)])\
+                       / 3
+expected = expected.dropna()
 
-# all last week
-hourly = hourly.reset_index().melt(id_vars='Municipality', value_name='actual')
-week_ago = copy(hourly)
+# add last week
+this_year = this_year.reset_index().melt(id_vars='Municipality', value_name='actual')
+week_ago = copy(this_year)
 week_ago.corrected_start = [date + dt.timedelta(days=7) for date in week_ago.corrected_start]
 week_ago = week_ago.rename(columns={'actual': 'week_ago'})
-hourly = pd.merge(hourly, week_ago, on=['Municipality', 'corrected_start'])
+this_year = pd.merge(this_year, week_ago, on=['Municipality', 'corrected_start'])
 
 # add normal
-normal = normal.reset_index().melt(id_vars='Municipality', value_name='normal')
+normal = expected.reset_index().melt(id_vars='Municipality', value_name='normal', var_name='corrected_start')
 normal['weekday'] = normal.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
 normal = normal.drop(columns='corrected_start')
-hourly['weekday'] = hourly.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
-peaks = pd.merge(hourly, normal, on=['Municipality', 'weekday']).drop(columns='weekday')
+this_year['weekday'] = this_year.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
+peaks = pd.merge(this_year, normal, on=['Municipality', 'weekday'], how='right').drop(columns='weekday')
 
 peaks = peaks.rename(columns={'corrected_start': 'time'})
 peaks['day'] = peaks.time.dt.strftime('%Y-%m-%d')
