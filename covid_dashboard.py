@@ -86,7 +86,7 @@ for cities_mode in [True, False]:
     today_hourly = add_aggregations(today_hourly)
 
     # filter out small agencies
-    minimum_events = 4000
+    minimum_events = 2500 if cities_mode else 4000
     benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
 
     # get January change from 2019 to 2020
