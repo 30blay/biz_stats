@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
-from etl.date_utils import Period, PeriodType, last_month
 from etl.Metric import *
 from etl.google import export_data_to_sheet
 import datetime as dt

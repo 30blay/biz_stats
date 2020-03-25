@@ -312,7 +312,6 @@ class AgencyMau(Metric):
         users_to_taps = all_users[all_users.index.isin(non_overlapping_feed_codes)].sum() /\
                         all_taps[all_taps.index.isin(non_overlapping_feed_ids)].sum()
 
-        print('ratio from taps to {} = {}'.format(self.name, users_to_taps))
         users = correct_for_overlap(group_taps, group_users, users_to_taps)
         users = users.drop(index='(none)', errors='ignore')
         return users.round()

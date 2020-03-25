@@ -3,7 +3,8 @@ import re
 from tqdm import tqdm
 import datetime
 from hubspot3.companies import CompaniesClient
-from etl.date_utils import last_month as get_last_month, Period, PeriodType
+from etl.date_utils import last_month as get_last_month, PeriodType
+from etl.DataWarehouse import Period
 import numpy as np
 
 
@@ -26,7 +27,7 @@ def update_companies(metrics):
     groups = dict(zip(group_names, group_defs))
 
     for metric in metrics:
-        print('Getting {}'.format(metric.name))
+        # print('Getting {}'.format(metric.name))
         if PeriodType.MONTH in metric.supported_period_types:
             metric_df = metric.get(last_month, None)
         else:
@@ -35,7 +36,7 @@ def update_companies(metrics):
         metric_df.columns = [metric.name]
         df = pd.merge(df, metric_df, left_on='feed_code', right_index=True, how='left')
 
-    for _, company in tqdm(df.iterrows()):
+    for _, company in df.iterrows():
         properties = []
         for metric in metrics:
             if np.isnan(company[metric.name]):

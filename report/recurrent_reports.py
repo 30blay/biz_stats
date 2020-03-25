@@ -1,6 +1,7 @@
 from report.report import Report
 from etl.Metric import *
-from etl.date_utils import Period, PeriodType, last_month
+from etl.date_utils import last_month
+from etl.DataWarehouse import Period
 from etl.DataWarehouse import DataWarehouse
 from sqlalchemy import create_engine
 
@@ -124,6 +125,7 @@ def stored_agencies(date, gSheetId):
     ], {'this month': Period(date, PeriodType.MONTH)})
 
     rep.df = rep.df.fillna('')
+    rep.df = rep.df[~rep.df.index.isna()]
     rep.df.index.rename('Feed Code', inplace=True)
     rep.export_data_to_sheet(sheet='data')
 
