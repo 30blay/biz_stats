@@ -41,7 +41,7 @@ def create_service():
     return None
 
 
-def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bottom_warning=True):
+def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bottom_warning=True, clear=True, header=True):
     """
     Export a pandas DataFrame to a google sheet.
     The index will be included as a column named index
@@ -53,12 +53,17 @@ def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bo
     :return: None
     """
     service = create_service()
+    if header:
+        table = df.reset_index().T.reset_index().T.values.tolist()
+    else:
+        table = df.reset_index().values.tolist()
 
     # clear everything first
-    response = service.spreadsheets().values().clear(
-        spreadsheetId=spreadsheet_id,
-        range=sheet+'!A1:ZZZ',
-    ).execute()
+    if clear:
+        response = service.spreadsheets().values().clear(
+            spreadsheetId=spreadsheet_id,
+            range=sheet+'!A1:ZZZ',
+        ).execute()
 
     if date:
         response = service.spreadsheets().values().append(
@@ -76,7 +81,7 @@ def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bo
         range='{}!{}'.format(sheet, cell),
         body=dict(
             majorDimension='ROWS',
-            values=df.reset_index().T.reset_index().T.values.tolist())
+            values=table)
     ).execute()
 
     if bottom_warning:

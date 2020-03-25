@@ -23,6 +23,23 @@ def get_tags():
     return tags
 
 
+@lru_cache()
+def get_mailboxes():
+    mailboxes = dict()
+    url = 'https://api.helpscout.net/v2/mailboxes'
+    token = get_token()
+    while True:
+        response = requests.get(url=url, headers={'Authorization': 'Bearer {}'.format(token)})
+        data = json.loads(response.text)
+        for mailbox in data['_embedded']['mailboxes']:
+            mailboxes[mailbox['name']] = mailbox['id']
+        try:
+            url = data['_links']['next']['href']
+        except KeyError:
+            break
+    return mailboxes
+
+
 def get_token():
     # get access token
     client_id = 'JxWb109NPeerikytd9d5r7gGKTTcC8je'
@@ -51,6 +68,34 @@ def get_email_report(start, end, tag):
                      })
     msgs = json.loads(r.text)
     return msgs
+
+
+def get_conversations(tags, mailbox, modified_since):
+    mailboxes = get_mailboxes()
+    mailbox_id = mailboxes[mailbox]
+    token = get_token()
+
+    conversations = []
+
+    r = requests.get(url='https://api.helpscout.net/v2/conversations',
+                     headers={'Authorization': 'Bearer {}'.format(token)},
+                     params={
+                         'tag': tags,
+                         'mailbox': mailbox_id,
+                         'modifiedSince': modified_since.strftime(time_format),
+                         'status': 'all',
+                         'embed': 'threads',
+                     })
+    url = r.request.url
+    while True:
+        response = requests.get(url=url, headers={'Authorization': 'Bearer {}'.format(token)})
+        data = json.loads(response.text)
+        conversations.extend(data['_embedded']['conversations'])
+        try:
+            url = data['_links']['next']['href']
+        except KeyError:
+            break
+    return conversations
 
 
 def get_support_emails_by_feed_code(start, end):

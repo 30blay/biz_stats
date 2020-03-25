@@ -12,7 +12,7 @@ def get_google_sheet(spreadsheet_id, sheet='Sheet1', range='A1:YY'):
         range=sheet+'!'+range,
     ).execute()
     data = response['values']
-    df = pd.DataFrame(data[1:], columns=data[0])
+    df = pd.DataFrame(data[1:], columns=data[0][0:max([len(row) for row in data[1:]])])
     return df
 
 
