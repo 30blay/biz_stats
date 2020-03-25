@@ -177,15 +177,14 @@ def get_service_property_name(feed_codes):
 @lru_cache()
 @retry(tries=2)
 def get_routes():
-    feeds = get_feeds()
-    all_feed_ids = ','.join(feeds.feed_id.apply(str))
-    url = 'https://api.transitapp.com/v3/admin/routes?feed_ids={}'.format(all_feed_ids)
+    # feeds = get_feeds()
+    # all_feed_ids = ','.join(feeds.feed_id.apply(str))
+    # url = 'https://api.transitapp.com/v3/admin/routes?feed_ids={}'.format(all_feed_ids)
+    url = 'https://transitupdate.transitapp.com/routes/get/allHistoricalRoutes'
     response = requests.get(url)
     route_dicts = json.loads(response.text).get('routes')
     routes = pd.DataFrame(route_dicts)
-    routes['route_short_name'] = routes.route_short_name_by_language.map(lambda names: names['en'])
-    routes['route_long_name'] = routes.route_long_name_by_language.map(lambda names: names['en'])
-    routes = routes[['global_route_id', 'feed_id', 'route_short_name', 'route_long_name', 'network_names_by_language']]
+    routes = routes[['global_route_id', 'feed_id', 'route_short_name', 'route_long_name', 'network_names']]
     routes = routes.set_index('global_route_id')
     return routes
 
