@@ -6,7 +6,7 @@ from etl.amplitude import get_event_on_period, get_most_popular_bikeshare_statio
 from etl import sql_queries
 from etl import event_definitions
 from etl.date_utils import PeriodType
-from etl.helpscout_api import get_support_emails
+from etl.helpscout_api import get_support_emails_by_feed_code
 from etl.transitapp_api import get_alerts, get_overlapping_agencies, get_feeds, get_non_overlapping_agencies, get_service_property_name
 from etl.google_sheet_getters import get_dar, get_google_sheet, get_unlinked_trips, get_revenue
 
@@ -408,10 +408,10 @@ class SupportEmails(Metric):
         super().__init__('Support Emails', MetricType.AGENCY, 0)
 
     def _get(self, period, group):
-        data = get_support_emails(period.start, period.end)
+        data = get_support_emails_by_feed_code(period.start, period.end)
         if group:
             data = pd.Series(data[data.index.isin(group)].sum())
-        return data['messages_received']
+        return data
 
 
 class AgencyDar(Metric):

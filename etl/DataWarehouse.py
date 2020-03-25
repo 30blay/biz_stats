@@ -297,6 +297,9 @@ class DataWarehouse:
         return df
 
     def slice_period(self, period, metrics):
+        # nothing will happen if they are already there
+        self.load([period], metrics)
+
         period_id = self._get_period_id(period)
         all_metric_names = [metric.name for metric in metrics]
         stored_metric_names = [metric.name for metric in metrics if not isinstance(metric, AgencyRatio)]
