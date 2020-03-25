@@ -31,7 +31,7 @@ for embd in df._embedded:
     email_body.append(body)
 df = df.assign(email_body=email_body)
 
-df = df.assign(verion='', platform='', type='')
+df = df.assign(version='', platform='', type='')
 for i, row in df.iterrows():
     try:
         version = re.search('\d+\.\d+\.\d+', row.subject).group(0)
