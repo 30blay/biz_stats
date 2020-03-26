@@ -148,6 +148,9 @@ this_year = pd.merge(this_year, week_ago, on=['Municipality', 'corrected_start']
 
 # add normal
 normal = expected.reset_index().melt(id_vars='Municipality', value_name='normal', var_name='corrected_start')
+normal['day'] = normal.corrected_start.dt.strftime('%Y-%m-%d')
+hundred_percent = normal.groupby(['day', 'Municipality']).max().rename(columns={'normal': 'hundred_percent'}).drop(columns='corrected_start')
+normal = pd.merge(normal, hundred_percent, on=['Municipality', 'day'], how='left')
 peaks = pd.merge(this_year, normal, on=['Municipality', 'corrected_start'], how='right')
 
 peaks = peaks.rename(columns={'corrected_start': 'time'})
@@ -158,6 +161,11 @@ peaks = peaks.replace([np.inf, -np.inf], np.nan)
 peaks = peaks.fillna('')
 peaks = peaks.set_index('Municipality')
 
+# represent everything as a %
+peaks.normal = peaks.normal / peaks.hundred_percent
+peaks.actual = peaks.actual / peaks.hundred_percent
+peaks.week_ago = peaks.week_ago / peaks.hundred_percent
+peaks = peaks.drop(columns='hundred_percent')
 
 # export to google sheet
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
