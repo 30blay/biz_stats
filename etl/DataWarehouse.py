@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 import datetime
 import os
+from copy import copy
 import pandas as pd
 from tqdm import tqdm
 from etl.date_utils import last_month, PeriodType, last_day_of_month
@@ -153,7 +154,7 @@ class DataWarehouse:
     def create_all(self):
         self.declarative_base.metadata.create_all(self.engine)
 
-    def add_periods(self, start=datetime.date(2015, 1, 1)):
+    def add_periods(self, start=datetime.datetime(2015, 1, 1)):
         """
         Add record to the periods table until today. This does not calculate any metric for these periods
         If any of the periods already exists, that period is not added
@@ -164,13 +165,13 @@ class DataWarehouse:
 
         """
         with self.session() as session:
-            today = datetime.date.today()
+            today = datetime.datetime.today()
             periods = []
             first_day_of_month = last_month(today)
 
             while first_day_of_month > start:
-                periods.append(Period(start=first_day_of_month, type=PeriodType.MONTH))
-                periods.append(Period(start=first_day_of_month, type=PeriodType.YEAR))
+                periods.append(Period(first_day_of_month, PeriodType.MONTH))
+                periods.append(Period(first_day_of_month, PeriodType.YEAR))
                 first_day_of_month = last_month(first_day_of_month)
 
             for period in periods:
@@ -207,7 +208,8 @@ class DataWarehouse:
     def _get_period_id(self, period):
         with self.session() as session:
             try:
-                session.add(period)
+                local_period = session.merge(period)
+                session.add(local_period)
                 session.commit()
             except IntegrityError:
                 session.rollback()
@@ -325,7 +327,7 @@ class DataWarehouse:
         periods = []
         period = Period(start, period_type)
         while period.start <= stop:
-            periods.append(period)
+            periods.append(copy(period))
             period = Period(period.end + datetime.timedelta(minutes=1), period_type)
         return periods
                 
