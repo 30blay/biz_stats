@@ -4,7 +4,7 @@ from etl.google import create_service
 from etl.date_utils import PeriodType
 
 
-def get_google_sheet(spreadsheet_id, sheet='Sheet1', range='A1:YY'):
+def get_google_sheet(spreadsheet_id, sheet='Sheet1', range='A1:YY', header=True):
     """ Get a google sheet into a pandas DataFrame """
     service = create_service()
     response = service.spreadsheets().values().get(
@@ -12,7 +12,10 @@ def get_google_sheet(spreadsheet_id, sheet='Sheet1', range='A1:YY'):
         range=sheet+'!'+range,
     ).execute()
     data = response['values']
-    df = pd.DataFrame(data[1:], columns=data[0][0:max([len(row) for row in data[1:]])])
+    if header:
+        df = pd.DataFrame(data[1:], columns=data[0][0:max([len(row) for row in data[1:]])])
+    else:
+        df = pd.DataFrame(data)
     return df
 
 
