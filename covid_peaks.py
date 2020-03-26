@@ -11,7 +11,7 @@ from copy import copy
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
-warehouse = DataWarehouse(engine, verbose=True, amplitude_stops_changing=dt.timedelta(days=20))
+warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
 metric = AgencyUncorrectedSessions()
 
 tf = TimezoneFinder()
@@ -95,7 +95,7 @@ def format_time(list_of_dfs):
 
 
 start = pd.datetime(2020, 3, 16)
-end = (pd.datetime.today() - dt.timedelta(days=2)).replace(hour=23, minute=59)
+end = (pd.datetime.today() - dt.timedelta(hours=24 + 7)).replace(hour=23, minute=59)
 
 benchmark19 = warehouse.slice_metric(
     pd.datetime(2019, 2, 15),
@@ -148,10 +148,7 @@ this_year = pd.merge(this_year, week_ago, on=['Municipality', 'corrected_start']
 
 # add normal
 normal = expected.reset_index().melt(id_vars='Municipality', value_name='normal', var_name='corrected_start')
-normal['weekday'] = normal.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
-normal = normal.drop(columns='corrected_start')
-this_year['weekday'] = this_year.corrected_start.map(lambda date: date.strftime('%A %H:%M'))
-peaks = pd.merge(this_year, normal, on=['Municipality', 'weekday'], how='right').drop(columns='weekday')
+peaks = pd.merge(this_year, normal, on=['Municipality', 'corrected_start'], how='right')
 
 peaks = peaks.rename(columns={'corrected_start': 'time'})
 peaks['day'] = peaks.time.dt.strftime('%Y-%m-%d')
@@ -165,4 +162,4 @@ peaks = peaks.set_index('Municipality')
 # export to google sheet
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
-export_data_to_sheet(peaks, None, staging, sheet='peaks', bottom_warning=False)
+export_data_to_sheet(peaks, None, gsheet, sheet='peaks', bottom_warning=False)
