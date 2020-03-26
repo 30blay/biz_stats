@@ -106,9 +106,12 @@ class RouteFact(Base):
 
 
 class DataWarehouse:
-    def __init__(self, engine, verbose=False, amplitude_stops_changing=datetime.timedelta(days=60), recency_limit_minutes=40):
+    def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60), recency_limit_minutes=40):
         self.engine = engine
-        self.verbose = verbose
+        try:
+            self.verbose = os.environ['WAREHOUSE_ENV'] == 'development'
+        except KeyError:
+            self.verbose = False
         self.declarative_base = Base
         self.connection = self.engine.connect()
         self.feeds = None
