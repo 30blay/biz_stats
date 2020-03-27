@@ -206,7 +206,6 @@ class DataWarehouse:
                     session.commit()
                 except IntegrityError:
                     session.rollback()
-            session.close()
 
     def _get_period_id(self, period):
         with self.session() as session:
@@ -349,11 +348,11 @@ class DataWarehouse:
                 .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
                 .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
 
-        df = pd.DataFrame(query.all())
-        df = self.correct_for_delayed_reporting(df)
-        df = df.pivot(index='start', columns='metric', values='value')
-        df.to_clipboard()
-        print('Copied to clipboard')
+            df = pd.DataFrame(query.all())
+            df = self.correct_for_delayed_reporting(df)
+            df = df.pivot(index='start', columns='metric', values='value')
+            df.to_clipboard()
+            print('Copied to clipboard')
         return df
 
     def slice_period(self, period, metrics):
@@ -372,7 +371,7 @@ class DataWarehouse:
                 .filter(Period.period_id == period_id,
                         AgencyFact.metric.in_(stored_metric_names))
 
-        df = pd.DataFrame(query.all())
+            df = pd.DataFrame(query.all())
         df = self.correct_for_delayed_reporting(df)
 
         if len(df) == 0:
@@ -404,8 +403,8 @@ class DataWarehouse:
                 .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
                 .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
                 .filter(Period.period_id.in_(period_ids), AgencyFact.metric == metric.name)
+            df = pd.DataFrame(query.all())
 
-        df = pd.DataFrame(query.all())
         df = self.correct_for_delayed_reporting(df)
 
         if len(df) == 0:
@@ -519,13 +518,13 @@ class DataWarehouse:
                 .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
                 .filter(AgencyFact.period_id == period_id, AgencyFact.metric == metric.name) \
                 .order_by(AgencyFact.last_update.desc())
-        most_recent = query.first()
-        if most_recent is None:
-            return False
+            most_recent = query.first()
+            if most_recent is None:
+                return False
 
-        recency = datetime.datetime.now() - most_recent.last_update
-        if recency < self.recency_limit:
-            return True
+            recency = datetime.datetime.now() - most_recent.last_update
+            if recency < self.recency_limit:
+                return True
 
-        delay = most_recent.last_update - most_recent.start
+            delay = most_recent.last_update - most_recent.start
         return delay > self.amplitude_stops_changing
