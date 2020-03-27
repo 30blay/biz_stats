@@ -2,6 +2,12 @@ import argparse
 import datetime
 from report.recurrent_reports import bikeshare, agencies, kpi, latest_metrics, stored_agencies
 from etl.date_utils import last_month as get_last_month
+import os
+
+try:
+    verbose = os.environ['WAREHOUSE_ENV'] == 'development'
+except KeyError:
+    verbose = False
 
 reports = {
     'bikeshare': bikeshare,
@@ -28,7 +34,8 @@ args = parser.parse_args()
 date = datetime.datetime.strptime(args.date, '%Y-%m')
 
 if args.report in reports:
-    print('Generating report: '+args.report+' for '+args.date)
+    if verbose:
+        print('Generating report: '+args.report+' for '+args.date)
     reports[args.report](date, args.gsheetid)
 else:
     print('No report named '+args.report+'. Valid options are: '+valid_reports_str)
