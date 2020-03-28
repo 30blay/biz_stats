@@ -2,6 +2,7 @@ from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum,
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.hybrid import hybrid_property
 from contextlib import contextmanager
 
@@ -205,7 +206,7 @@ class DataWarehouse:
             period = self.session.query(Period).filter(
                 Period.start == period.start,
                 Period.type == period.type).one()
-        except IntegrityError:
+        except NoResultFound:
             local_period = self.session.merge(period)
             self.session.add(local_period)
             self.session.commit()
