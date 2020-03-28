@@ -106,7 +106,7 @@ class RouteFact(Base):
 
 
 class DataWarehouse:
-    def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60), recency_limit_minutes=40):
+    def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60)):
         self.engine = engine
         try:
             self.verbose = os.environ['WAREHOUSE_ENV'] == 'development'
@@ -118,21 +118,13 @@ class DataWarehouse:
         self.sharing_systems = None
         self.routes = None
         self.feed_groups = None
-        self.recency_limit = datetime.timedelta(minutes=recency_limit_minutes)
+        self.recency_limit = {PeriodType.HOUR: datetime.timedelta(minutes=45),
+                              PeriodType.DAY: datetime.timedelta(hours=6),
+                              PeriodType.MONTH: datetime.timedelta(days=3),
+                              PeriodType.YEAR: datetime.timedelta(days=30),
+                              }
         self.amplitude_stops_changing = amplitude_stops_changing
-
-    @contextmanager
-    def session(self):
-        """Provide a transactional scope around a series of operations."""
-        session = Session(self.engine)
-        try:
-            yield session
-            session.commit()
-        except:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+        self.session = Session(self.engine)
 
     def get_feeds(self):
         if self.feeds is None:
@@ -167,22 +159,21 @@ class DataWarehouse:
         Returns: nothing
 
         """
-        with self.session() as session:
-            today = datetime.datetime.today()
-            periods = []
-            first_day_of_month = last_month(today)
+        today = datetime.datetime.today()
+        periods = []
+        first_day_of_month = last_month(today)
 
-            while first_day_of_month > start:
-                periods.append(Period(first_day_of_month, PeriodType.MONTH))
-                periods.append(Period(first_day_of_month, PeriodType.YEAR))
-                first_day_of_month = last_month(first_day_of_month)
+        while first_day_of_month > start:
+            periods.append(Period(first_day_of_month, PeriodType.MONTH))
+            periods.append(Period(first_day_of_month, PeriodType.YEAR))
+            first_day_of_month = last_month(first_day_of_month)
 
-            for period in periods:
-                try:
-                    session.add(period)
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
+        for period in periods:
+            try:
+                self.session.add(period)
+                self.session.commit()
+            except IntegrityError:
+                self.session.rollback()
 
     def add_entities(self):
         """
@@ -199,32 +190,30 @@ class DataWarehouse:
         for _, sharing_system in sharing_systems.iterrows():
             entities.append(Entity(type='sharing_system', sharing_system_id=sharing_system['system_id']))
 
-        with self.session() as session:
-            for entity in entities:
-                try:
-                    session.add(entity)
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()
-
-    def _get_period_id(self, period):
-        with self.session() as session:
+        for entity in entities:
             try:
-                local_period = session.merge(period)
-                session.add(local_period)
-                session.commit()
+                self.session.add(entity)
+                self.session.commit()
             except IntegrityError:
-                session.rollback()
+                self.session.rollback()
 
-            period = session.query(Period).filter(
-                    Period.start == period.start,
-                    Period.type == period.type).one()
+    def _merge_period(self, period):
+        """
+        Take a Period object in detached state and reconciles it with an existing Period in the DB, or creates one
+        """
+        try:
+            period = self.session.query(Period).filter(
+                Period.start == period.start,
+                Period.type == period.type).one()
+        except IntegrityError:
+            local_period = self.session.merge(period)
+            self.session.add(local_period)
+            self.session.commit()
 
-            return period.period_id
+        return period
 
     def _get_entity_id(self, feed_id):
-        with self.session() as session:
-            entity = session.query(Entity).filter(Entity.feed_id == feed_id).one()
+        entity = self.session.query(Entity).filter(Entity.feed_id == feed_id).one()
         return entity.entity_id
 
     def load(self, period_list, metric_list):
@@ -240,12 +229,9 @@ class DataWarehouse:
             if self.verbose:
                 print(metric.name)
             for period in tqdm(period_list, disable=not self.verbose):
-                period_id = self._get_period_id(period)
-
-                if period_id is None:
-                    raise ValueError('Requested period is too recent')
+                period = self._merge_period(period)
                 
-                if self._no_need_to_recalculate(period_id, metric, groups):
+                if not self._needs_to_recalculate(period, metric, groups):
                     continue
 
                 df = metric.get(period, groups, False)
@@ -259,12 +245,11 @@ class DataWarehouse:
                     MetricType.SHARING_SERVICE: self._make_sharing_facts,
                     MetricType.ROUTE:  self._make_route_fact,
                 }
-                update_facts = make_facts[metric.entity_type](metric, period_id, df)
+                update_facts = make_facts[metric.entity_type](metric, period.period_id, df)
 
-                with self.session() as session:
-                    for fact in update_facts:
-                        session.merge(fact)
-                    session.commit()
+                for fact in update_facts:
+                    self.session.merge(fact)
+                self.session.commit()
 
     def _make_agency_facts(self, metric, period_id, df):
         entities_df = pd.read_sql_table('entities', self.connection)
@@ -341,37 +326,35 @@ class DataWarehouse:
         metric_names = [metric.name for metric in metrics]
         entity_id = self._get_entity_id(feed_id)
         periods = self.periods_between(start, stop, period_type)
-        period_ids = [self._get_period_id(period) for period in periods]
+        period_ids = [self._merge_period(period).period_id for period in periods]
 
-        with self.session() as session:
-            query = session.query(AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update)\
-                .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
-                .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
+        query = self.session.query(AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update)\
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
+            .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
 
-            df = pd.DataFrame(query.all())
-            df = self.correct_for_delayed_reporting(df)
-            df = df.pivot(index='start', columns='metric', values='value')
-            df.to_clipboard()
-            print('Copied to clipboard')
+        df = pd.DataFrame(query.all())
+        df = self.correct_for_delayed_reporting(df)
+        df = df.pivot(index='start', columns='metric', values='value')
+        df.to_clipboard()
+        print('Copied to clipboard')
         return df
 
     def slice_period(self, period, metrics):
         # nothing will happen if they are already there
         self.load([period], metrics)
 
-        period_id = self._get_period_id(period)
+        period = self._merge_period(period)
         all_metric_names = [metric.name for metric in metrics]
         stored_metric_names = [metric.name for metric in metrics if not isinstance(metric, AgencyRatio)]
         feeds = self.get_feeds().set_index('feed_id').feed_code
 
-        with self.session() as session:
-            query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
-                .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
-                .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
-                .filter(Period.period_id == period_id,
-                        AgencyFact.metric.in_(stored_metric_names))
+        query = self.session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
+            .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
+            .filter(Period.period_id == period.period_id,
+                    AgencyFact.metric.in_(stored_metric_names))
 
-            df = pd.DataFrame(query.all())
+        df = pd.DataFrame(query.all())
         df = self.correct_for_delayed_reporting(df)
 
         if len(df) == 0:
@@ -392,18 +375,17 @@ class DataWarehouse:
 
     def slice_metric(self, start, end, period_type, metric):
         periods = self.periods_between(start, end, period_type)
-        period_ids = [self._get_period_id(period) for period in periods]
+        period_ids = [self._merge_period(period).period_id for period in periods]
         feeds = self.get_feeds().set_index('feed_id').feed_code
 
         # nothing will happen if they are already there
         self.load(periods, [metric])
 
-        with self.session() as session:
-            query = session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
-                .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
-                .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
-                .filter(Period.period_id.in_(period_ids), AgencyFact.metric == metric.name)
-            df = pd.DataFrame(query.all())
+        query = self.session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
+            .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
+            .filter(Period.period_id.in_(period_ids), AgencyFact.metric == metric.name)
+        df = pd.DataFrame(query.all())
 
         df = self.correct_for_delayed_reporting(df)
 
@@ -452,16 +434,15 @@ class DataWarehouse:
 
         Returns: a pandas DataFrame where every row is a route
         """
-        period_id = self._get_period_id(period)
+        period = self._merge_period(period)
         metric = RouteHits()
         self.load([period], [metric])
 
-        with self.session() as session:
-            query = session.query(RouteFact.feed_id, RouteFact.global_route_id, RouteFact.value) \
-                .outerjoin(Period, Period.period_id == RouteFact.period_id) \
-                .filter(Period.period_id == period_id, RouteFact.metric == metric.name)
-            df = pd.DataFrame(query.all())
-            df = df.rename(columns={'value': 'hits'})
+        query = self.session.query(RouteFact.feed_id, RouteFact.global_route_id, RouteFact.value) \
+            .outerjoin(Period, Period.period_id == RouteFact.period_id) \
+            .filter(Period.period_id == period.period_id, RouteFact.metric == metric.name)
+        df = pd.DataFrame(query.all())
+        df = df.rename(columns={'value': 'hits'})
 
         return df
 
@@ -509,22 +490,21 @@ class DataWarehouse:
 
         return df.drop(columns=['last_update', 'factor'])
 
-    def _no_need_to_recalculate(self, period_id, metric, groups):
+    def _needs_to_recalculate(self, period, metric, groups):
         if groups is not None:
             raise ValueError('groups not supported yet')
 
-        with self.session() as session:
-            query = session.query(Period.start, AgencyFact.last_update) \
-                .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
-                .filter(AgencyFact.period_id == period_id, AgencyFact.metric == metric.name) \
-                .order_by(AgencyFact.last_update.desc())
-            most_recent = query.first()
-            if most_recent is None:
-                return False
+        query = self.session.query(Period.start, AgencyFact.last_update) \
+            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
+            .filter(AgencyFact.period_id == period.period_id, AgencyFact.metric == metric.name) \
+            .order_by(AgencyFact.last_update.desc())
+        most_recent = query.first()
+        if most_recent is None:
+            return True
 
-            recency = datetime.datetime.now() - most_recent.last_update
-            if recency < self.recency_limit:
-                return True
+        recency = datetime.datetime.now() - most_recent.last_update
+        if recency < self.recency_limit[period.type]:
+            return False
 
-            delay = most_recent.last_update - most_recent.start
-        return delay > self.amplitude_stops_changing
+        delay = most_recent.last_update - most_recent.start
+        return delay < self.amplitude_stops_changing
