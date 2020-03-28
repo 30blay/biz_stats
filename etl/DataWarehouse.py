@@ -87,6 +87,7 @@ class Period(Base):
     def __str__(self):
         return "{} starting at {}".format(self.type.name, self.start)
 
+
 class AgencyFact(Base):
     __tablename__ = 'fact_agencies'
     entity_id = Column(Integer, ForeignKey(Entity.entity_id), primary_key=True)
@@ -127,6 +128,9 @@ class DataWarehouse:
         self.amplitude_stops_changing = amplitude_stops_changing
         self.session = Session(self.engine)
 
+        self._create_all()
+        self._add_entities()
+
     def get_feeds(self):
         if self.feeds is None:
             self.feeds = get_feeds()
@@ -147,36 +151,10 @@ class DataWarehouse:
             self.feed_groups = get_feed_groups()
         return self.feed_groups
 
-    def create_all(self):
+    def _create_all(self):
         self.declarative_base.metadata.create_all(self.engine)
 
-    def add_periods(self, start=datetime.datetime(2015, 1, 1)):
-        """
-        Add record to the periods table until today. This does not calculate any metric for these periods
-        If any of the periods already exists, that period is not added
-        Args:
-            start: datetime.date object
-
-        Returns: nothing
-
-        """
-        today = datetime.datetime.today()
-        periods = []
-        first_day_of_month = last_month(today)
-
-        while first_day_of_month > start:
-            periods.append(Period(first_day_of_month, PeriodType.MONTH))
-            periods.append(Period(first_day_of_month, PeriodType.YEAR))
-            first_day_of_month = last_month(first_day_of_month)
-
-        for period in periods:
-            try:
-                self.session.add(period)
-                self.session.commit()
-            except IntegrityError:
-                self.session.rollback()
-
-    def add_entities(self):
+    def _add_entities(self):
         """
         Update the 'entities' table with all feeds, sharing systems and groups
         Returns: nothing
@@ -207,8 +185,8 @@ class DataWarehouse:
                 Period.start == period.start,
                 Period.type == period.type).one()
         except NoResultFound:
-            local_period = self.session.merge(period)
-            self.session.add(local_period)
+            period = self.session.merge(period)
+            self.session.add(period)
             self.session.commit()
 
         return period

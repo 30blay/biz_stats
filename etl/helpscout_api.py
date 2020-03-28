@@ -105,10 +105,10 @@ def get_support_emails_by_feed_code(start, end):
 
     def get_messages_received(feed_code):
         try:
-            email_report = get_email_report(start, end, feed_code.lower())
+            messages_received = get_email_report(start, end, feed_code.lower())['current']['volume']['messagesReceived']
         except KeyError:
             return None
-        return email_report['current']['volume']['messagesReceived']
+        return messages_received
 
     # get report
     df = df.assign(messages_received=df.feed_code.map(get_messages_received))

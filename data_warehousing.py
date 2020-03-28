@@ -7,9 +7,6 @@ import datetime
 engine = create_engine('sqlite:///warehouse.db')
 
 warehouse = DataWarehouse(engine)
-warehouse.create_all()
-warehouse.add_periods()
-warehouse.add_entities()
 
 now = datetime.datetime.now()
 period = Period(now - datetime.timedelta(hours=1), PeriodType.HOUR)

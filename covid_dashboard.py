@@ -13,9 +13,6 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
 
 warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
-warehouse.create_all()
-warehouse.add_periods()
-warehouse.add_entities()
 
 for cities_mode in [True, False]:
     def add_aggregations(df):
