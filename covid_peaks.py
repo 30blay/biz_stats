@@ -8,6 +8,9 @@ import pytz
 from timezonefinder import TimezoneFinder
 import os
 from copy import copy
+import socket
+
+socket.setdefaulttimeout(600)  # set timeout to 10 minutes
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
@@ -27,8 +30,8 @@ feeds = feeds.dropna()
 feeds['tz_name'] = [tf.timezone_at(lat=lat, lng=lon) for lat, lon in zip(feeds.lat, feeds.lon)]
 feeds = feeds.dropna()
 
-exclude = get_google_sheet(gsheet, 'exclude', header=False)
-rename = get_google_sheet(gsheet, 'rename')
+exclude = get_google_sheet(gsheet, 'exclude', header=False, range='A:A')
+rename = get_google_sheet(gsheet, 'rename', range='A:C')
 rename.index = rename.iloc[:, 0]
 
 
@@ -65,6 +68,8 @@ def get_local_time(df):
     unstacked = df.melt(id_vars='feed_code', var_name='start')
     unstacked['tz'] = unstacked.feed_code.map(feeds.tz_name)
     unstacked['corrected_start'] = [a_start.astimezone(tz).replace(tzinfo=None) for a_start, tz in zip(unstacked.start, unstacked.tz)]
+
+    unstacked = unstacked.drop_duplicates(subset=['feed_code', 'corrected_start'])
 
     df = unstacked.pivot(index='feed_code', columns='corrected_start', values='value')
     # ignore 30 minute timezones
