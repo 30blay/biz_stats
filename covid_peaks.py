@@ -9,6 +9,7 @@ from timezonefinder import TimezoneFinder
 import os
 from copy import copy
 import socket
+from covid_dashboard import get_countries, get_cities
 
 socket.setdefaulttimeout(600)  # set timeout to 10 minutes
 
@@ -38,6 +39,9 @@ rename.index = rename.iloc[:, 0]
 def add_aggregations(df_):
     df = copy(df_)
     df = df[~df.index.isin(exclude[0])]
+    cities = get_cities(df)
+    countries = get_countries(df)
+
     glob = df.sum().rename(('All Cities', 'All Cities'))
     feeds = get_feeds().set_index('feed_code')[['country_codes', 'feed_location']]
     df['country'] = df.index.map(feeds.country_codes)
@@ -47,14 +51,17 @@ def add_aggregations(df_):
     df['dashboard_name'] = df['dashboard_name'] + ' (' + df.Municipality + ')'
     df = df.reset_index().set_index(['feed_code', 'dashboard_name'])
 
-    countries = df.groupby("country").sum()
-    cities = df.groupby("Municipality").sum().reset_index()
+    cities = cities.reset_index()
     cities['dashboard_name'] = cities.Municipality
     cities = cities.set_index(['Municipality', 'dashboard_name'])
-    # df = df.append(countries[countries.index.isin(['CA', 'US', 'FR'])], sort=False)
-    # df = df.rename(index={'CA': 'Canada', 'US': 'United States', 'FR': 'France'})
+
+    countries = countries.reset_index()
+    countries['dashboard_name'] = countries.country
+    countries = countries.set_index(['country', 'dashboard_name'])
+
     df = df.drop(columns=['country', 'Municipality', 'dashboard_name'], errors='ignore')
-    df = df.append(cities[cities.index.get_level_values(0) != 'California'], sort=False)
+    df = df.append(cities, sort=False)
+    df = df.append(countries, sort=False)
     df = df.append(glob)
 
     return df
