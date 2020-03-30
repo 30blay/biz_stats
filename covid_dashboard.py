@@ -25,6 +25,7 @@ def get_cities(df_):
         'SF Bay Area': 'San Francisco Bay Area',
         'NYC': 'New York City',
     })
+    cities = cities.sort_index()
     return cities
 
 
@@ -42,11 +43,12 @@ def get_countries(df_):
         'AU': 'Australia',
         'NZ': 'New Zealand',
     })
+    countries = countries.sort_index()
     return countries
 
 
 if __name__ == "__main__":
-    for cities_mode in [False]:
+    for cities_mode in [True, False]:
         def add_aggregations(df):
             glob = df.sum().rename('Global')
 
