@@ -208,7 +208,6 @@ class DataWarehouse:
             if self.verbose:
                 print(metric.name)
             for period in tqdm(period_list, disable=not self.verbose):
-                period = self._merge_period(period)
                 
                 if not self._needs_to_recalculate(period, metric, groups):
                     continue
@@ -289,27 +288,30 @@ class DataWarehouse:
             ))
         return update_facts
 
-    def periods_between(self, start, stop, period_type):
+    def get_periods_between(self, start, stop, period_type):
+        """Get all possible periods, and create them if they don't exist"""
         periods = []
         period = Period(start, period_type)
         while period.start <= stop:
+            period = self._merge_period(period)
             periods.append(copy(period))
             period = Period(period.end + datetime.timedelta(minutes=1), period_type)
         return periods
                 
     def load_between(self, start, stop, period_type, metrics):
-        periods = self.periods_between(start, stop, period_type)
+        periods = self.get_periods_between(start, stop, period_type)
         self.load(periods, metrics)
 
     def slice_feed(self, feed_id, metrics, start, stop, period_type):
         metric_names = [metric.name for metric in metrics]
         entity_id = self._get_entity_id(feed_id)
-        periods = self.periods_between(start, stop, period_type)
-        period_ids = [self._merge_period(period).period_id for period in periods]
+        periods = self.get_periods_between(start, stop, period_type)
+        self.load(periods, metrics)
 
         query = self.session.query(AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update)\
             .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
-            .filter(Period.period_id.in_(period_ids), AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))
+            .filter(AgencyFact.entity_id == entity_id, AgencyFact.metric.in_(metric_names))\
+            .filter(Period.start.between(start, stop), Period.type == period_type)
 
         df = pd.DataFrame(query.all())
         df = self.correct_for_delayed_reporting(df)
@@ -318,11 +320,12 @@ class DataWarehouse:
         print('Copied to clipboard')
         return df
 
+    # todo this function should accept any_date and period_type as arguments
     def slice_period(self, period, metrics):
         # nothing will happen if they are already there
+        period = self._merge_period(period)
         self.load([period], metrics)
 
-        period = self._merge_period(period)
         all_metric_names = [metric.name for metric in metrics]
         stored_metric_names = [metric.name for metric in metrics if not isinstance(metric, AgencyRatio)]
         feeds = self.get_feeds().set_index('feed_id').feed_code
@@ -353,8 +356,7 @@ class DataWarehouse:
         return df
 
     def slice_metric(self, start, end, period_type, metric):
-        periods = self.periods_between(start, end, period_type)
-        period_ids = [self._merge_period(period).period_id for period in periods]
+        periods = self.get_periods_between(start, end, period_type)
         feeds = self.get_feeds().set_index('feed_id').feed_code
 
         # nothing will happen if they are already there
@@ -363,7 +365,8 @@ class DataWarehouse:
         query = self.session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
             .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
             .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
-            .filter(Period.period_id.in_(period_ids), AgencyFact.metric == metric.name)
+            .filter(Period.start.between(start, end), Period.type == period_type)\
+            .filter(AgencyFact.metric == metric.name)
         df = pd.DataFrame(query.all())
 
         df = self.correct_for_delayed_reporting(df)
@@ -377,6 +380,7 @@ class DataWarehouse:
 
         return df
 
+    # todo this function should accept any_date and period_type as arguments
     def get_top_routes_and_hits(self, period, this_period_last_year=False, n=3):
         if not period.type == PeriodType.MONTH:
             raise ValueError('MONTH periods only')
@@ -405,6 +409,7 @@ class DataWarehouse:
         df.index = df.index.map(feeds.set_index('feed_id').feed_code)
         return df
 
+    # todo this function should accept any_date and period_type as arguments
     def get_route_hits(self, period):
         """
         Get the hits for each route, for a given period
@@ -425,6 +430,7 @@ class DataWarehouse:
 
         return df
 
+    # todo this function should accept any_date and period_type as arguments
     def get_top_routes(self, period, n=3):
         """
         Get the top routes for each feed
@@ -447,7 +453,7 @@ class DataWarehouse:
         return df
 
     def get_top_routes_for_feed(self, feed_id, start, stop):
-        periods = self.periods_between(start, stop, PeriodType.MONTH)
+        periods = self.get_periods_between(start, stop, PeriodType.MONTH)
         df = pd.DataFrame()
         for period in periods:
             month_df = self.get_top_routes(period)
