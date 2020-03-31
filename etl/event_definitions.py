@@ -77,7 +77,7 @@ def service_sales():
     return event
 
 
-def agency_tickets_sold():
+def service_tickets_sold():
     event = Event('Place Order')
     event.add_filter('event', 'State', 'is', ['Completed'])
     # The first groupby can be used for property sums. This is how amplitude works :)

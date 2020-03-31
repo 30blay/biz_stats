@@ -196,6 +196,26 @@ class BikeshareSales(Metric):
         return sales.groupby('service').sum()[self.interest_vars]
 
 
+class BikeshareAmplitudeSales(Metric):
+    def __init__(self):
+        super().__init__('Sales', MetricType.SHARING_SERVICE, '-')
+
+    def _get(self, period, group):
+        sales_event = self._get_event(event_definitions.service_sales, group)
+        data = get_event_on_period(sales_event, period, EventMode.sums, amplitude_con)
+        return data
+
+
+class BikeshareAmplitudeTicketsSold(Metric):
+    def __init__(self):
+        super().__init__('Tickets Sold', MetricType.SHARING_SERVICE, '0')
+
+    def _get(self, period, group):
+        sales_event = self._get_event(event_definitions.service_tickets_sold, group)
+        data = get_event_on_period(sales_event, period, EventMode.sums, amplitude_con)
+        return data
+
+
 class BikeshareMostPopStations(Metric):
     def __init__(self, n=3):
         """
@@ -531,7 +551,7 @@ class AgencyTicketsSold(Metric):
         super().__init__('Tickets Sold', MetricType.AGENCY, '0')
 
     def _get(self, period, group):
-        sales_event = self._get_event(event_definitions.agency_tickets_sold, group)
+        sales_event = self._get_event(event_definitions.service_tickets_sold, group)
         data = get_event_on_period(sales_event, period, EventMode.sums, amplitude_con)
         data = data[data.index.isin(supported_sales_feed_codes.keys())]
         data.index = data.index.map(supported_sales_feed_codes)
