@@ -92,7 +92,7 @@ def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bo
             body=dict(
                 majorDimension='ROWS',
                 values=[[''],
-                        ['Updated on ' + str(datetime.date.today())],
+                        ['Updated on ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
                         ['Note : This spreadsheet gets overwritten on a regular basis']
                         ])
         ).execute()
