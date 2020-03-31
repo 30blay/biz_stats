@@ -293,8 +293,8 @@ class DataWarehouse:
         periods = []
         period = Period(start, period_type)
         while period.start <= stop:
-            period = self._merge_period(period)
-            periods.append(copy(period))
+            local_period = self._merge_period(period)
+            periods.append(local_period)
             period = Period(period.end + datetime.timedelta(minutes=1), period_type)
         return periods
                 
