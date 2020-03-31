@@ -22,11 +22,11 @@ def bikeshare(date, gSheetId):
     })
 
     rep.add([
-        BikeshareSales(),
+        BikeshareAmplitudeSales(),
+        BikeshareAmplitudeTicketsSold(),
     ], {
         'this month': Period(date, PeriodType.MONTH),
         'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH),
-        'this year': Period(date, PeriodType.YEAR),
     })
 
     rep.add([
