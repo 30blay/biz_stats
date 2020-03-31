@@ -28,9 +28,9 @@ def update_companies(metrics, warehouse):
     for metric in metrics:
         # print('Getting {}'.format(metric.name))
         if PeriodType.MONTH in metric.supported_period_types:
-            metric_df = warehouse.slice_period(last_month, [metric])
+            metric_df = warehouse.slice_period(last_month.start, last_month.type, [metric])
         else:
-            metric_df = warehouse.slice_period(last_year, [metric])
+            metric_df = warehouse.slice_period(last_year.start, last_year.type, [metric])
 
         metric_df.columns = [metric.name]
         df = pd.merge(df, metric_df, left_on='feed_code', right_index=True, how='left')

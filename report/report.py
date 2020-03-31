@@ -32,7 +32,7 @@ class Report:
     def _add_from_warehouse(self, metrics, periods):
         for metric in metrics:
             for period_name, period in periods.items():
-                data = self.warehouse.slice_period(period, [metric])
+                data = self.warehouse.slice_period(period.start, period.type, [metric])
                 data.columns = ['{} {}'.format(metric.name, period_name)]
                 self.df = pd.merge(self.df, data, left_index=True, right_index=True, how='outer')
 

@@ -320,10 +320,9 @@ class DataWarehouse:
         print('Copied to clipboard')
         return df
 
-    # todo this function should accept any_date and period_type as arguments
-    def slice_period(self, period, metrics):
+    def slice_period(self, any_time, period_type, metrics):
         # nothing will happen if they are already there
-        period = self._merge_period(period)
+        period = self._merge_period(Period(any_time=any_time, type_=period_type))
         self.load([period], metrics)
 
         all_metric_names = [metric.name for metric in metrics]
@@ -380,18 +379,17 @@ class DataWarehouse:
 
         return df
 
-    # todo this function should accept any_date and period_type as arguments
-    def get_top_routes_and_hits(self, period, this_period_last_year=False, n=3):
-        if not period.type == PeriodType.MONTH:
+    def get_top_routes_and_hits(self, any_date, period_type, this_period_last_year=False, n=3):
+        if not period_type == PeriodType.MONTH:
             raise ValueError('MONTH periods only')
 
-        period_last_year = Period(period.start.replace(year=period.start.year-1), period.type)
+        any_date_last_year = any_date.replace(year=any_date.year-1)
         feeds = self.get_feeds()
 
-        df = self.get_top_routes(period, n)
+        df = self.get_top_routes(any_date, period_type, n)
         index = df.index
-        hits_this_year = self.get_route_hits(period)
-        hits_last_year = self.get_route_hits(period_last_year)
+        hits_this_year = self.get_route_hits(any_date, period_type)
+        hits_last_year = self.get_route_hits(any_date_last_year, period_type)
 
         hits_this_year = hits_this_year[['global_route_id', 'hits']].rename(columns={'hits': 'hits this month'})
         hits_last_year = hits_last_year[['global_route_id', 'hits']].rename(columns={'hits': 'hits this month last year'})
@@ -409,16 +407,16 @@ class DataWarehouse:
         df.index = df.index.map(feeds.set_index('feed_id').feed_code)
         return df
 
-    # todo this function should accept any_date and period_type as arguments
-    def get_route_hits(self, period):
+    def get_route_hits(self, any_date, period_type):
         """
         Get the hits for each route, for a given period
         Args:
-            period: a Period object for which we want to get top routes
+            any_date: a date in the period for which we want to get top routes
+            period_type: the type of period for which we want to get top routes
 
         Returns: a pandas DataFrame where every row is a route
         """
-        period = self._merge_period(period)
+        period = self._merge_period(Period(any_date, period_type))
         metric = RouteHits()
         self.load([period], [metric])
 
@@ -430,19 +428,19 @@ class DataWarehouse:
 
         return df
 
-    # todo this function should accept any_date and period_type as arguments
-    def get_top_routes(self, period, n=3):
+    def get_top_routes(self, any_date, period_type, n=3):
         """
         Get the top routes for each feed
         Args:
-            period: a Period object for which we want to get top routes
+            any_date: any date of the period for which we want to get top routes
+            period_type: the type of period (PeriodType enum)
             n: number of top routes to get
 
         Returns: a pandas DataFrame where every row is a feed, and columns are the top routes names and hits
         """
         routes = self.get_routes()
 
-        df = self.get_route_hits(period)
+        df = self.get_route_hits(any_date, period_type)
         df = df.sort_values('hits', ascending=False)
         df = df.groupby('feed_id').head(n)
         df['route name'] = df.global_route_id.map(routes.route_short_name)
@@ -456,7 +454,7 @@ class DataWarehouse:
         periods = self.get_periods_between(start, stop, PeriodType.MONTH)
         df = pd.DataFrame()
         for period in periods:
-            month_df = self.get_top_routes(period)
+            month_df = self.get_top_routes(period.start, period.type)
             month_df = month_df[month_df.index == feed_id]
             month_df.index = [period.start]
             df = df.append(month_df)

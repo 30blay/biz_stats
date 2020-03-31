@@ -111,7 +111,7 @@ def stored_agencies(date, gSheetId):
         AgencyMau(),
     ], periods)
 
-    lines = warehouse.get_top_routes_and_hits(Period(date, PeriodType.MONTH), this_period_last_year=True)
+    lines = warehouse.get_top_routes_and_hits(date, PeriodType.MONTH, this_period_last_year=True)
     rep.df = pd.merge(rep.df, lines, left_index=True, right_index=True, how='outer')
 
     rep.add([
@@ -180,12 +180,12 @@ def latest_metrics(date, gSheetId):
     warehouse = DataWarehouse(engine)
     rep = Report(date, gSheetId)
 
-    yearly = warehouse.slice_period(Period(date, PeriodType.YEAR), [
+    yearly = warehouse.slice_period(date, PeriodType.YEAR, [
         AgencyRidership(),
         AgencyRevenue(),
     ])
 
-    monthly = warehouse.slice_period(Period(date, PeriodType.MONTH), [
+    monthly = warehouse.slice_period(date, PeriodType.MONTH, [
         AgencyDar(),
         AgencyDau(),
         AgencyMau(),
