@@ -7,6 +7,13 @@ import copy
 import pycountry
 import os
 import re
+from enum import Enum
+
+
+class Mode(Enum):
+    OUTPUT = 1
+    OUTPUT_CITIES = 2
+    ALL = 3
 
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -48,72 +55,85 @@ def get_countries(df_):
 
 
 if __name__ == "__main__":
-    for cities_mode in [True, False]:
+    metric = AgencyUncorrectedSessions()
+
+    benchmark19_slice = warehouse.slice_metric(
+        pd.datetime(2019, 2, 15),
+        pd.datetime(2019, 2, 28),
+        PeriodType.DAY,
+        metric)
+
+    benchmark20_slice = warehouse.slice_metric(
+        pd.datetime(2020, 2, 15),
+        pd.datetime(2020, 2, 28),
+        PeriodType.DAY,
+        metric)
+
+    mar19_slice = warehouse.slice_metric(
+        pd.datetime(2019, 2, 8),
+        pd.datetime(2019, 10, 30),
+        PeriodType.DAY,
+        metric)
+
+    mar20_slice = warehouse.slice_metric(
+        pd.datetime(2020, 2, 15),
+        pd.datetime.now() - dt.timedelta(days=1),
+        PeriodType.DAY,
+        metric)
+
+    previous_hour = pd.datetime.now() - dt.timedelta(hours=1)
+    start_of_today = previous_hour.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = start_of_today - dt.timedelta(days=7)
+
+    week_ago_hourly_slice = warehouse.slice_metric(
+        week_ago,
+        previous_hour - dt.timedelta(days=7),
+        PeriodType.HOUR,
+        metric)
+
+    today_hourly_slice = warehouse.slice_metric(
+        start_of_today,
+        previous_hour,
+        PeriodType.HOUR,
+        metric)
+
+    for cities_mode in [Mode.OUTPUT, Mode.OUTPUT_CITIES]:
         def add_aggregations(df):
             glob = df.sum().rename('Global')
 
             cities = get_cities(df)
             countries = get_countries(df)
 
-            df = df.append(countries, sort=False)
-            df = df.append(glob, sort=False)
+            if cities_mode == Mode.OUTPUT:
+                df = df.append(countries, sort=False)
+                df = df.append(glob, sort=False)
 
-            if cities_mode:
+            if cities_mode == Mode.OUTPUT_CITIES:
                 df = cities
+
+            if cities_mode == Mode.ALL:
+                df = df.append(countries, sort=False)
+                df = df.append(cities, sort=False)
+                df = df.append(glob, sort=False)
             return df
 
+        benchmark19 = add_aggregations(benchmark19_slice)
 
-        metric = AgencyUncorrectedSessions()
-        # metric = AgencyUniqueUsers()
+        benchmark20 = add_aggregations(benchmark20_slice)
 
-        benchmark19 = warehouse.slice_metric(
-            pd.datetime(2019, 2, 15),
-            pd.datetime(2019, 2, 28),
-            PeriodType.DAY,
-            metric)
-        benchmark19 = add_aggregations(benchmark19)
+        mar19 = add_aggregations(mar19_slice)
 
-        benchmark20 = warehouse.slice_metric(
-            pd.datetime(2020, 2, 15),
-            pd.datetime(2020, 2, 28),
-            PeriodType.DAY,
-            metric)
-        benchmark20 = add_aggregations(benchmark20)
+        mar20 = add_aggregations(mar20_slice)
 
-        mar19 = warehouse.slice_metric(
-            pd.datetime(2019, 2, 8),
-            pd.datetime(2019, 10, 30),
-            PeriodType.DAY,
-            metric)
-        mar19 = add_aggregations(mar19)
+        week_ago_hourly = add_aggregations(week_ago_hourly_slice)
 
-        mar20 = warehouse.slice_metric(
-            pd.datetime(2020, 2, 15),
-            pd.datetime.now() - dt.timedelta(days=1),
-            PeriodType.DAY,
-            metric)
-        mar20 = add_aggregations(mar20)
-
-        previous_hour = pd.datetime.now() - dt.timedelta(hours=1)
-        start_of_today = previous_hour.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        week_ago = start_of_today - dt.timedelta(days=7)
-        week_ago_hourly = warehouse.slice_metric(
-            week_ago,
-            previous_hour - dt.timedelta(days=7),
-            PeriodType.HOUR,
-            metric)
-        week_ago_hourly = add_aggregations(week_ago_hourly)
-
-        today_hourly = warehouse.slice_metric(
-            start_of_today,
-            previous_hour,
-            PeriodType.HOUR,
-            metric)
-        today_hourly = add_aggregations(today_hourly)
+        today_hourly = add_aggregations(today_hourly_slice)
 
         # filter out small agencies
-        minimum_events = 2500 if cities_mode else 4000
+        minimum_events = {
+            Mode.OUTPUT: 4000,
+            Mode.OUTPUT_CITIES: 2500,
+        }[cities_mode]
         benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
 
         # get January change from 2019 to 2020
@@ -144,7 +164,7 @@ if __name__ == "__main__":
         effect = effect.iloc[:, ::-1]
 
         # add feed metadata
-        if not cities_mode:
+        if cities_mode != Mode.OUTPUT_CITIES:
             feeds = copy.copy(warehouse.get_feeds())
             feeds = feeds[feeds.country_codes != 'ZZ']
             feeds.country_codes.replace('EQ', 'EC', inplace=True)
@@ -179,5 +199,8 @@ if __name__ == "__main__":
         gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
         staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
         effect.columns = effect.columns.map(str)
-        sheet = 'raw_cities' if cities_mode else 'raw'
-        export_data_to_sheet(effect, None, gsheet, sheet=sheet)
+        sheet = {
+            Mode.OUTPUT: 'raw',
+            Mode.OUTPUT_CITIES: 'raw_cities',
+        }[cities_mode]
+        export_data_to_sheet(effect, None, staging, sheet=sheet)
