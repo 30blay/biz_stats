@@ -203,4 +203,4 @@ if __name__ == "__main__":
             Mode.OUTPUT: 'raw',
             Mode.OUTPUT_CITIES: 'raw_cities',
         }[cities_mode]
-        export_data_to_sheet(effect, None, staging, sheet=sheet)
+        export_data_to_sheet(effect, None, gsheet, sheet=sheet)
