@@ -136,8 +136,9 @@ benchmark20 = warehouse.slice_metric(
 benchmark20 = add_aggregations(benchmark20)
 
 # filter out small cities
+include_no_matter_what = ['UTA', 'Salt Lake City']
 minimum_events = 8000
-benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
+benchmark19 = benchmark19[(benchmark19.mean(axis=1) > minimum_events) | (benchmark19.index.get_level_values(0).isin(include_no_matter_what))]
 
 yoy = benchmark20.mean(axis=1) / benchmark19.mean(axis=1)
 
