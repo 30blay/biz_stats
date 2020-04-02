@@ -21,6 +21,14 @@ engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
 
 warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
 
+gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
+staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
+
+exclude = get_google_sheet(gsheet, 'exclude', header=False, range='A:A')
+exclude_cities = get_google_sheet(gsheet, 'exclude_cities', header=False, range='A:A')
+rename = get_google_sheet(gsheet, 'rename', range='A:C')
+rename.index = rename.iloc[:, 0]
+
 
 def get_cities(df_):
     df = copy.copy(df_)
@@ -33,6 +41,7 @@ def get_cities(df_):
         'NYC': 'New York City',
     })
     cities = cities.sort_index()
+    cities = cities.drop(index=exclude_cities[0], errors='ignore')
     return cities
 
 
@@ -99,6 +108,7 @@ if __name__ == "__main__":
 
     for cities_mode in [Mode.OUTPUT, Mode.OUTPUT_CITIES]:
         def add_aggregations(df):
+            df = df[~df.index.isin(exclude[0])]
             glob = df.sum().rename('Global')
 
             cities = get_cities(df)
@@ -196,8 +206,6 @@ if __name__ == "__main__":
         effect = effect.sort_values('Municipality')
 
         # export to google sheet
-        gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
-        staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
         effect.columns = effect.columns.map(str)
         sheet = {
             Mode.OUTPUT: 'raw',
