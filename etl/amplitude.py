@@ -80,6 +80,7 @@ def get_event_on_period(event, period, mode, amplitude_connection, aggregation_t
                 PeriodType.HOUR: '-3600000',
                 PeriodType.DAY: '1',
                 PeriodType.MONTH: '30',
+                PeriodType.QUARTER: '90',
                 }[period.type]
 
     if aggregation_type == AggregationType.WEEKDAY_AVG:
