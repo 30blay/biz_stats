@@ -361,6 +361,18 @@ class AgencyUncorrectedSessions(Metric):
         return sessions.round()
 
 
+class AgencyCovidNotifTaps(Metric):
+    def __init__(self, name='Covid Notification Taps'):
+        self.aggregation_type = AggregationType.NONE
+        super().__init__(name, MetricType.AGENCY, 0)
+
+    def _get(self, period, group):
+        notif_event = self._get_event(event_definitions.agency_covid_notif_tap, group)
+        notifs = get_event_on_period(notif_event, period, EventMode.totals, amplitude_con, self.aggregation_type)
+        notifs = notifs.drop(index='(none)', errors='ignore')
+        return notifs
+
+
 class AgencyDau(AgencyMau):
     def __init__(self):
         super().__init__('DAU')

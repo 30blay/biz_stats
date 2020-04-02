@@ -102,6 +102,10 @@ def get_event_on_period(event, period, mode, amplitude_connection, aggregation_t
                                                        [event], mode.name, interval, segments)
 
     data = api_response['data']
+
+    if len(data['seriesLabels']) == 0:
+        return pd.Series()
+
     if isinstance(data['seriesLabels'][0], list):
         series_labels = [label[1] for label in data['seriesLabels']]
     else:

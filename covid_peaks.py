@@ -86,12 +86,31 @@ def get_local_time(df):
     return df
 
 
+def correct_for_push_notifs(df):
+    # correct the session bump due to push notifs on Mar24 2020
+    taps = warehouse.slice_metric(
+        pd.datetime(2020, 3, 24) - dt.timedelta(hours=18),
+        pd.datetime(2020, 3, 25) + dt.timedelta(hours=6),
+        PeriodType.HOUR,
+        AgencyCovidNotifTaps())
+    taps = taps.reindex(df.index).T.reindex(df.columns).T
+    taps = taps.fillna(0)
+
+    magic_factor = 2.4
+    df = df - magic_factor * taps
+    return df
+
+
 def get_local_hourly_slice(start, end, metric):
     df = warehouse.slice_metric(
         start - dt.timedelta(hours=18),
         end + dt.timedelta(hours=6),
         PeriodType.HOUR,
         metric)
+
+    if start <= dt.datetime(2020, 3, 24) <= end:
+        df = correct_for_push_notifs(df)
+
     df = get_local_time(df)
     keepers = [date for date in df.columns if start <= date <= end]
     df = df[keepers]
