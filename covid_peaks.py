@@ -32,7 +32,6 @@ feeds['tz_name'] = [tf.timezone_at(lat=lat, lng=lon) for lat, lon in zip(feeds.l
 feeds = feeds.dropna()
 
 exclude = get_google_sheet(gsheet, 'exclude', header=False, range='A:A')
-exclude_cities = get_google_sheet(gsheet, 'exclude_cities', header=False, range='A:A')
 rename = get_google_sheet(gsheet, 'rename', range='A:C')
 rename.index = rename.iloc[:, 0]
 
@@ -40,7 +39,7 @@ rename.index = rename.iloc[:, 0]
 def add_aggregations(df_):
     df = copy(df_)
     df = df[~df.index.isin(exclude[0])]
-    cities = get_cities(df).drop(index=exclude_cities[0], errors='ignore')
+    cities = get_cities(df)
     countries = get_countries(df)
 
     glob = df.sum().rename(('All Cities', 'All Cities'))
