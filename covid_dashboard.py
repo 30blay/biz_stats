@@ -22,6 +22,7 @@ engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
 warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
+public = '1poUGMWDl7cmGFXobJquGAg04mObsmCEZP3TtpwQbKI4'
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 
 exclude = get_google_sheet(gsheet, 'exclude', header=False, range='A:A')
@@ -212,3 +213,4 @@ if __name__ == "__main__":
             Mode.OUTPUT_CITIES: 'raw_cities',
         }[cities_mode]
         export_data_to_sheet(effect, None, gsheet, sheet=sheet)
+        export_data_to_sheet(effect, None, public, sheet=sheet)

@@ -14,6 +14,7 @@ from covid_dashboard import get_countries, get_cities
 socket.setdefaulttimeout(600)  # set timeout to 10 minutes
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
+publish = '1XzuMXqwfvyEDkZwP5IFndS7QubSTyz1p0GhjSuMr4k0'
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
@@ -212,3 +213,6 @@ peaks.week_ago = peaks.week_ago / peaks.hundred_percent
 peaks = peaks.drop(columns='hundred_percent')
 
 export_data_to_sheet(peaks, None, gsheet, sheet='peaks', bottom_warning=False)
+pub_peaks = peaks[['dashboard_name', 'time', 'actual', 'week_ago', 'normal', 'day']]
+pub_peaks = pub_peaks.rename(columns={'dashboard_name': 'name'})
+export_data_to_sheet(pub_peaks, None, publish, sheet='Hourly App Usage', bottom_warning=False)
