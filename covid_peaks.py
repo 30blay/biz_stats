@@ -9,7 +9,7 @@ from timezonefinder import TimezoneFinder
 import os
 from copy import copy
 import socket
-from covid_dashboard import get_countries, get_cities
+from covid_dashboard import get_countries, get_cities, include_no_matter_what
 
 socket.setdefaulttimeout(600)  # set timeout to 10 minutes
 
@@ -155,7 +155,6 @@ benchmark20 = warehouse.slice_metric(
 benchmark20 = add_aggregations(benchmark20)
 
 # filter out small cities
-include_no_matter_what = ['UTA', 'Salt Lake City']
 minimum_events = 8000
 benchmark19 = benchmark19[(benchmark19.mean(axis=1) > minimum_events) | (benchmark19.index.get_level_values(0).isin(include_no_matter_what))]
 

@@ -15,6 +15,7 @@ class Mode(Enum):
     OUTPUT_CITIES = 2
     ALL = 3
 
+include_no_matter_what = ['UTA', 'Salt Lake City']
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
@@ -145,7 +146,7 @@ if __name__ == "__main__":
             Mode.OUTPUT: 4000,
             Mode.OUTPUT_CITIES: 2500,
         }[cities_mode]
-        benchmark19 = benchmark19[benchmark19.mean(axis=1) > minimum_events]
+        benchmark19 = benchmark19[(benchmark19.mean(axis=1) > minimum_events) | (benchmark19.index.isin(include_no_matter_what))]
 
         # get January change from 2019 to 2020
         yoy = benchmark20.mean(axis=1) / benchmark19.mean(axis=1)
@@ -195,6 +196,7 @@ if __name__ == "__main__":
                 'feed_name': 'Name',
                 'feed_location': 'Municipality',
             })
+            effect.Name = effect.index.map(rename['Dashboard name'])
             # remove the state that sometimes comes after the city
             effect.Municipality = effect.Municipality.str.split(',').str[0]
 
