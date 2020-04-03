@@ -211,8 +211,8 @@ if __name__ == "__main__":
         # export to google sheet
         effect.columns = effect.columns.map(str)
         sheet = {
-            Mode.OUTPUT: 'raw',
-            Mode.OUTPUT_CITIES: 'raw_cities',
+            Mode.OUTPUT: 'output',
+            Mode.OUTPUT_CITIES: 'output_cities',
         }[cities_mode]
         export_data_to_sheet(effect, None, gsheet, sheet=sheet)
         export_data_to_sheet(effect, None, public, sheet=sheet)
