@@ -15,7 +15,7 @@ class Mode(Enum):
     OUTPUT_CITIES = 2
     ALL = 3
 
-include_no_matter_what = ['UTA', 'Salt Lake City']
+include_no_matter_what = ['UTA', 'INDYGOIN', 'Salt Lake City']
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))

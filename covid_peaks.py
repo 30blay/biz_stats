@@ -9,13 +9,15 @@ from timezonefinder import TimezoneFinder
 import os
 from copy import copy
 import socket
-from covid_dashboard import get_countries, get_cities, include_no_matter_what
+from covid_dashboard import get_countries, get_cities
 
 socket.setdefaulttimeout(600)  # set timeout to 10 minutes
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
 publish = '1XzuMXqwfvyEDkZwP5IFndS7QubSTyz1p0GhjSuMr4k0'
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
+
+include_no_matter_what = ['UTA', 'Salt Lake City']
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
