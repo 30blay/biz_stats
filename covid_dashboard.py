@@ -196,7 +196,7 @@ if __name__ == "__main__":
                 'feed_name': 'Name',
                 'feed_location': 'Municipality',
             })
-            effect.Name = effect.index.map(rename['Dashboard name'])
+            effect.update(pd.Series(effect.index.map(rename['Dashboard name']), name='Name', index=effect.index))
             # remove the state that sometimes comes after the city
             effect.Municipality = effect.Municipality.str.split(',').str[0]
 
