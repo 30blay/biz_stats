@@ -225,17 +225,23 @@ class DataWarehouse:
                 }
                 update_facts = make_facts[metric.entity_type](metric, period.period_id, df)
 
-                for fact in update_facts:
-                    self.session.merge(fact)
+                if not self._exists(period, metric, None):
+                    # this is an optimisation
+                    self.session.add_all(update_facts)
+                else:
+                    # this is slower but always works
+                    for fact in update_facts:
+                        self.session.merge(fact)
                 self.session.commit()
 
-    def _make_agency_facts(self, metric, period_id, df):
+    def _make_agency_facts(self, metric, period_id, series):
         entities_df = pd.read_sql_table('entities', self.connection)
         feeds = self.get_feeds().set_index('feed_code')['feed_id']
 
         feed_id_map = entities_df.set_index('feed_id').entity_id
         feed_id_map = feed_id_map[~pd.isna(feed_id_map.index)]
 
+        df = pd.DataFrame(series)
         df['feed_id'] = df.index.map(feeds)
         df['entity_id'] = df.feed_id.map(feed_id_map)
         df = df.dropna(subset=['entity_id'])
@@ -271,9 +277,10 @@ class DataWarehouse:
             ))
         return update_facts
 
-    def _make_route_fact(self, metric, period_id, df):
+    def _make_route_fact(self, metric, period_id, series):
         routes = self.get_routes()
 
+        df = pd.DataFrame(series)
         df['feed_id'] = df.index.map(routes.feed_id)
         df = df.dropna(subset=['feed_id'])
 
@@ -356,27 +363,53 @@ class DataWarehouse:
 
     def slice_metric(self, start, end, period_type, metric):
         periods = self.get_periods_between(start, end, period_type)
-        feeds = self.get_feeds().set_index('feed_id').feed_code
+
+        if metric.entity_type not in [MetricType.AGENCY, MetricType.ROUTE]:
+            raise ValueError("Unsupported metric type {}".format(metric.entity_type.name))
 
         # nothing will happen if they are already there
         self.load(periods, [metric])
 
-        query = self.session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update) \
+        getter = {MetricType.AGENCY: self.slice_metric_agencies,
+                  MetricType.ROUTE: self.slice_metric_routes}[metric.entity_type]
+        df = getter(start, end, period_type, metric)
+
+        return df
+
+    def slice_metric_agencies(self, start, end, period_type, metric):
+        query = self.session.query(Entity.feed_id, AgencyFact.metric, Period.start, AgencyFact.value,
+                                   AgencyFact.last_update) \
             .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
             .outerjoin(Entity, Entity.entity_id == AgencyFact.entity_id) \
-            .filter(Period.start.between(start, end), Period.type == period_type)\
+            .filter(Period.start.between(start, end), Period.type == period_type) \
             .filter(AgencyFact.metric == metric.name)
         df = pd.DataFrame(query.all())
-
-        df = self.correct_for_delayed_reporting(df)
 
         if len(df) == 0:
             raise ValueError("No data found for metric {} between {} and {}".format(metric, start, end))
 
+        df = self.correct_for_delayed_reporting(df)
+
         df = df.pivot(index='feed_id', columns='start', values='value')
+        feeds = self.get_feeds().set_index('feed_id').feed_code
         df.index = df.index.map(feeds)
         df.index.rename('feed_code', inplace=True)
+        return df
 
+    def slice_metric_routes(self, start, end, period_type, metric):
+        query = self.session.query(RouteFact.global_route_id, RouteFact.metric, Period.start, RouteFact.value,
+                                   RouteFact.last_update) \
+            .outerjoin(Period, Period.period_id == RouteFact.period_id) \
+            .filter(Period.start.between(start, end), Period.type == period_type) \
+            .filter(RouteFact.metric == metric.name)
+        df = pd.DataFrame(query.all())
+
+        if len(df) == 0:
+            raise ValueError("No data found for metric {} between {} and {}".format(metric, start, end))
+
+        df = self.correct_for_delayed_reporting(df)
+
+        df = df.pivot(index='global_route_id', columns='start', values='value')
         return df
 
     def get_top_routes_and_hits(self, any_date, period_type, this_period_last_year=False, n=3):
@@ -477,10 +510,11 @@ class DataWarehouse:
         if groups is not None:
             raise ValueError('groups not supported yet')
 
-        query = self.session.query(Period.start, AgencyFact.last_update) \
-            .outerjoin(Period, Period.period_id == AgencyFact.period_id) \
-            .filter(AgencyFact.period_id == period.period_id, AgencyFact.metric == metric.name) \
-            .order_by(AgencyFact.last_update.desc())
+        fact_table = {MetricType.AGENCY: AgencyFact, MetricType.ROUTE: RouteFact}[metric.entity_type]
+        query = self.session.query(Period.start, fact_table.last_update) \
+            .outerjoin(Period, Period.period_id == fact_table.period_id) \
+            .filter(fact_table.period_id == period.period_id, fact_table.metric == metric.name) \
+            .order_by(fact_table.last_update.desc())
         most_recent = query.first()
         if most_recent is None:
             return True
@@ -491,3 +525,14 @@ class DataWarehouse:
 
         delay = most_recent.last_update - most_recent.start
         return delay < self.amplitude_stops_changing
+
+    def _exists(self, period, metric, groups):
+        if groups is not None:
+            raise ValueError('groups not supported yet')
+
+        fact_table = {MetricType.AGENCY: AgencyFact, MetricType.ROUTE: RouteFact}[metric.entity_type]
+        query = self.session.query(fact_table.period_id) \
+            .filter(fact_table.period_id == period.period_id, fact_table.metric == metric.name)
+        any_record = query.first()
+
+        return any_record is not None

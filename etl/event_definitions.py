@@ -136,6 +136,6 @@ def agency_transit_account_sessions():
 
 def agency_covid_notif_tap():
     event = Event('Tap Push Notification')
-    event.add_filter('event', 'Campaign ID', 'contains', ['Covid'])
+    event.add_filter('event', 'Campaign ID', 'contains', ['Covid', 'Service alerts'])
     event.add_groupby(groupby_type='user', groupby_value='gp:Agencies')
     return event
