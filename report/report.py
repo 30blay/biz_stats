@@ -56,7 +56,7 @@ class Report:
                 all_data = metric.get(period, self.groups, self.groups_only)
                 
                 new_df = new_df.reindex(new_df.index.union(all_data.index))
-                new_df[names] = all_data
+                new_df[names] = pd.DataFrame(all_data)
 
                 duplicated = new_df[new_df.index.duplicated()]
                 if len(duplicated != 0):
