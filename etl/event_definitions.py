@@ -49,18 +49,6 @@ def feed_go_trip():
     return event
 
 
-def agency_go_trip():
-    event = Event('ce:Complete Go trip with Public Transit')
-    event.add_groupby(groupby_type='event', groupby_value='Feed ID')
-    return event
-
-
-def agency_tap_nearby_service():
-    event = Event('Tap Nearby Service')
-    event.add_groupby(groupby_type='user', groupby_value='gp:Agencies')
-    return event
-
-
 def feed_tap_nearby_service():
     event = Event('Tap Nearby Service')
     event.add_filter('event', 'Type', 'is', ['Transit'])
