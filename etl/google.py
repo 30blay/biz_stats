@@ -41,13 +41,13 @@ def create_service():
     return None
 
 
-def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bottom_warning=True, clear=True, header=True):
+def export_data_to_sheet(df, period, spreadsheet_id, sheet='Sheet1', cell='A1', bottom_warning=True, clear=True, header=True):
     """
     Export a pandas DataFrame to a google sheet.
     The index will be included as a column named index
     The sheet gets cleared first
     :param df: Pandas DataFrame object
-    :param date: month the report is about, or None
+    :param period: period the report is about, or None
     :param spreadsheet_id: The id of the spreadsheet to which to write. Can be found in it's URL
     :param sheet: The name of the sheet.
     :return: None
@@ -65,14 +65,14 @@ def export_data_to_sheet(df, date, spreadsheet_id, sheet='Sheet1', cell='A1', bo
             range=sheet+'!A1:ZZZ',
         ).execute()
 
-    if date:
+    if period:
         response = service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
             valueInputOption='RAW',
             range='{}!{}'.format(sheet, cell),
             body=dict(
                 majorDimension='ROWS',
-                values=[['Month of ' + date.strftime('%Y-%m')]])
+                values=[[str(period)]])
         ).execute()
 
     response = service.spreadsheets().values().append(

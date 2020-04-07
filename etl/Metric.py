@@ -88,8 +88,6 @@ class Metric:
                     all_data = group_data
 
         all_data = all_data[~all_data.index.isna()]
-        if isinstance(all_data, pd.Series):
-            all_data = pd.DataFrame(all_data)
         return all_data
 
     def _get_event(self, getter_fn, group=None):
@@ -201,9 +199,11 @@ class BikeshareAmplitudeSales(Metric):
         super().__init__('Sales', MetricType.SHARING_SERVICE, '-')
 
     def _get(self, period, group):
-        sales_event = self._get_event(event_definitions.service_sales, group)
-        data = get_event_on_period(sales_event, period, EventMode.sums, amplitude_con)
-        return data
+        sales_price_event = self._get_event(event_definitions.service_sales, group)
+        sales_purchased_props_event = self._get_event(event_definitions.service_purchased_prop_sales, group)
+        price = get_event_on_period(sales_price_event, period, EventMode.sums, amplitude_con)
+        purchased_props_price = get_event_on_period(sales_purchased_props_event, period, EventMode.sums, amplitude_con)
+        return price.add(purchased_props_price, fill_value=0)
 
 
 class BikeshareAmplitudeTicketsSold(Metric):

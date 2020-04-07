@@ -77,6 +77,16 @@ def service_sales():
     return event
 
 
+def service_purchased_prop_sales():
+    """ This property (purchasedProps.Price) should almost never appear after 2020-04-01 """
+    event = Event('Place Order')
+    event.add_filter('event', 'State', 'is', ['Completed'])
+    # The first groupby can be used for property sums. This is how amplitude works :)
+    event.add_measured_property('event', 'purchasedProps.Price')
+    event.add_groupby(groupby_type='event', groupby_value='Service')
+    return event
+
+
 def service_tickets_sold():
     event = Event('Place Order')
     event.add_filter('event', 'State', 'is', ['Completed'])

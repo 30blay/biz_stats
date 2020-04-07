@@ -1,5 +1,6 @@
 import pandas as pd
 from etl.google import export_data_to_sheet
+from etl.DataWarehouse import Period, PeriodType
 
 
 class Report:
@@ -11,7 +12,7 @@ class Report:
         :param groups_only: if True, include only groups of feeds
         """
         self.g_sheet_id = google_sheet_id
-        self.this_month = date
+        self.this_month = Period(date, PeriodType.MONTH)
         self.df = pd.DataFrame()
         self.groups = None
         self.groups_only = groups_only
