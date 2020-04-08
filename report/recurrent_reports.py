@@ -16,24 +16,24 @@ def bikeshare(date, gSheetId):
         BikeshareTaps(),
         BikeshareUnlocksTotals(),
         BikeshareUnlocksUniques(),
-    ], {
-        'this month': Period(date, PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH)
-    })
+    ], [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ])
 
     rep.add([
         BikeshareAmplitudeSales(),
         BikeshareAmplitudeTicketsSold(),
-    ], {
-        'this month': Period(date, PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH),
-    })
+    ], [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ])
 
     rep.add([
         BikeshareMostPopStations(),
-    ], {
-        '': Period(date, PeriodType.MONTH),
-    })
+    ], [
+        ('', Period(date, PeriodType.MONTH)),
+    ])
 
     rep.df = rep.df.dropna(subset=['MAU this month'])
     rep.df = rep.df[rep.df.index != '(none)']
@@ -52,40 +52,40 @@ def agencies(date, gSheetId):
 
     rep.add([
         AgencyLanguage(),
-    ], {
-        '': None
-    })
+    ], [
+        ('', None)
+    ])
 
     rep.add([
-        AgencyAdoption(),
+        AgencyDau(),
         AgencySessions(),
         AgencyDownloads(),
         AgencyMau(),
-    ], {
-        'this month': Period(date, PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH)
-    })
+    ], [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ])
 
     rep.add([
         AgencyMostPopLines(),
-    ], {
-        '': Period(date, PeriodType.MONTH),
-    })
+    ], [
+        ('', Period(date, PeriodType.MONTH)),
+    ])
 
     rep.add([
         AgencyGoTrips(),
-    ], {
-        'this month': Period(date, PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH)
-    })
+    ], [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ])
 
     rep.add([
         AgencyAlertsSubs(),
         AgencySales(),
         AgencyTicketsSold(),
-    ], {
-        '': Period(date, PeriodType.MONTH),
-    })
+    ], [
+        ('', Period(date, PeriodType.MONTH)),
+    ])
 
     rep.df = rep.df.fillna('')
     rep.df = rep.df.drop(index='(none)', errors='ignore')
@@ -99,10 +99,10 @@ def stored_agencies(date, gSheetId):
     warehouse = DataWarehouse(engine)
     rep = Report(date, gSheetId, warehouse=warehouse)
 
-    periods = {
-        'this month': Period(date, PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH)
-    }
+    periods = [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ]
 
     rep.add([
         AgencyAdoption(),
@@ -122,7 +122,7 @@ def stored_agencies(date, gSheetId):
         AgencyAlertsSubs(),
         AgencySales(),
         AgencyTicketsSold(),
-    ], {'this month': Period(date, PeriodType.MONTH)})
+    ], ['this month', Period(date, PeriodType.MONTH)])
 
     rep.df = rep.df.fillna('')
     rep.df = rep.df[~rep.df.index.isna()]
@@ -160,11 +160,11 @@ def kpi(date, gSheetId):
         AgencyCreditCardAccounts(),
         AgencyDau(),
         # AgencySales(),
-    ], {
-        'this month': Period(date, PeriodType.MONTH),
-        'last month': Period(last_month(date), PeriodType.MONTH),
-        'this month last year': Period(date.replace(year=date.year - 1), PeriodType.MONTH)
-    })
+    ], [
+        ('this month', Period(date, PeriodType.MONTH)),
+        ('last month', Period(last_month(date), PeriodType.MONTH)),
+        ('this month last year', Period(date.replace(year=date.year - 1), PeriodType.MONTH))
+    ])
 
 
     rep.df = rep.df.fillna('')

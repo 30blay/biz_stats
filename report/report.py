@@ -1,6 +1,7 @@
 import pandas as pd
 from etl.google import export_data_to_sheet
 from etl.DataWarehouse import Period, PeriodType
+from copy import copy
 
 
 class Report:
@@ -22,7 +23,7 @@ class Report:
         """
         Add one or more metrics to the report, calculated for one or more periods
         :param metrics: a list of Metric objects
-        :param periods: dictionary where the period name is the key and a Period object is the value
+        :param periods: list of tuples where the first element is name and the second, a Period object
         :return:
         """
         if self.warehouse is not None:
@@ -32,7 +33,7 @@ class Report:
 
     def _add_from_warehouse(self, metrics, periods):
         for metric in metrics:
-            for period_name, period in periods.items():
+            for period_name, period in periods:
                 data = self.warehouse.slice_period(period.start, period.type, [metric])
                 data.columns = ['{} {}'.format(metric.name, period_name)]
                 self.df = pd.merge(self.df, data, left_index=True, right_index=True, how='outer')
@@ -51,7 +52,7 @@ class Report:
             if isinstance(metric.name, str):
                 metric.name = [metric.name]
 
-            for period_name, period in periods.items():
+            for period_name, period in periods:
                 names = [name + ' ' + period_name for name in metric.name]
                 all_data = metric.get(period, self.groups, self.groups_only)
                 
@@ -66,7 +67,7 @@ class Report:
     def _add_cols(self, metric, periods, new_df):
         # reorder to have metrics, then periods
         for name in metric.name:
-            for period_name, period in periods.items():
+            for period_name, period in periods:
                 col_name = name + ' ' + period_name
                 if col_name in self.df.columns:
                     raise Exception('Duplicated column name {}'.format(col_name))
@@ -83,9 +84,10 @@ class Report:
         self.groups = groups
 
     def export_data_to_sheet(self, sheet='Sheet1', cell='A1', metrics_as_rows=True):
-        self.df['INDEX'] = self.df.index.str.upper()
-        self.df = self.df.sort_values('INDEX')
-        del self.df['INDEX']
+        df = copy(self.df)
+        df['INDEX'] = df.index.str.upper()
+        df = df.sort_values('INDEX')
+        del df['INDEX']
         if metrics_as_rows:
-            self.df = self.df.transpose()
-        export_data_to_sheet(self.df, self.this_month, self.g_sheet_id, sheet=sheet, cell=cell)
+            df = df.transpose()
+        export_data_to_sheet(df, self.this_month, self.g_sheet_id, sheet=sheet, cell=cell)
