@@ -309,7 +309,9 @@ class DataWarehouse:
         periods = self.get_periods_between(start, stop, period_type)
         self.load(periods, metrics)
 
-    def slice_feed(self, feed_id, metrics, start, stop, period_type):
+    def slice_feed(self, feed_code, metrics, start, stop, period_type):
+        feeds = self.get_feeds()
+        feed_id = int(feeds[feeds.feed_code == feed_code].feed_id.values[0])
         metric_names = [metric.name for metric in metrics]
         entity_id = self._get_entity_id(feed_id)
         periods = self.get_periods_between(start, stop, period_type)
