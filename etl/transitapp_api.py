@@ -65,6 +65,8 @@ def get_overlapping_agencies(hardcoded=True):
                    'ACT',
                    'NFTANY',
                    'KCM',
+                   'TANKKY',
+                   'BCRTA',
                    ]
     return overlapping
 

@@ -87,6 +87,7 @@ def agencies(date, gSheetId):
         ('', Period(date, PeriodType.MONTH)),
     ])
 
+    rep.df = rep.df.replace(0, '')
     rep.df = rep.df.fillna('')
     rep.df = rep.df.drop(index='(none)', errors='ignore')
 
@@ -189,7 +190,9 @@ def latest_metrics(date, gSheetId):
         AgencyDar(),
         AgencyDau(),
         AgencyMau(),
+        AgencyMau(),
         AgencyAdoption(),
+        AgencySessions(),
         AgencySales(),
         AgencyTicketsSold(),
         AgencyAlertsSubs(),

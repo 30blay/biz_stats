@@ -149,7 +149,7 @@ def extend_years(df):
     for year in range(last_year, this_year+1):
         df[year] = df[last_year]
 
-    return dfx
+    return df
 
 
 def unlinked_trips_to_dar(df):
