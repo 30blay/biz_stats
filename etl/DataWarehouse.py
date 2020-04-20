@@ -1,10 +1,12 @@
-from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum, UniqueConstraint, ForeignKey
+from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum, UniqueConstraint, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.hybrid import hybrid_property
 from contextlib import contextmanager
+from sshtunnel import SSHTunnelForwarder
+
 
 import datetime
 import os
@@ -15,14 +17,13 @@ from etl.date_utils import last_month, PeriodType, last_day_of_month
 from etl.transitapp_api import get_feeds, get_routes, get_feed_groups, get_sharing_systems
 from etl.Metric import MetricType, RouteHits, AgencyRatio
 
-meta = MetaData()
 Base = declarative_base()
 
 
 class Entity(Base):
     __tablename__ = 'entities'
     entity_id = Column(Integer, primary_key=True)
-    type = Column(String)
+    type = Column(String(64))
     feed_id = Column(Integer, unique=True)
     sharing_system_id = Column(Integer, unique=True)
     group_id = Column(Integer, unique=True)
@@ -92,7 +93,7 @@ class AgencyFact(Base):
     __tablename__ = 'fact_agencies'
     entity_id = Column(Integer, ForeignKey(Entity.entity_id), primary_key=True)
     period_id = Column(Integer, ForeignKey(Period.period_id), primary_key=True)
-    metric = Column(String, primary_key=True)
+    metric = Column(String(64), primary_key=True)
     value = Column(Float)
     last_update = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
@@ -102,14 +103,16 @@ class RouteFact(Base):
     global_route_id = Column(Integer, ForeignKey(Entity.entity_id), primary_key=True)
     feed_id = Column(Integer)
     period_id = Column(Integer, ForeignKey(Period.period_id), primary_key=True)
-    metric = Column(String, primary_key=True)
+    metric = Column(String(64), primary_key=True)
     value = Column(Float)
     last_update = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
 
 class DataWarehouse:
     def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60)):
-        self.engine = engine
+        self.engine = None
+        self.create_engine(engine)
+
         try:
             self.verbose = os.environ['WAREHOUSE_ENV'] == 'development'
         except KeyError:
@@ -538,3 +541,27 @@ class DataWarehouse:
         any_record = query.first()
 
         return any_record is not None
+
+    def create_engine(self, engine):
+        valid_engines = ['sqlite', 'stats_mysql']
+        if engine not in valid_engines:
+            raise ValueError('engine must be one of {}'.format(','.join(valid_engines)))
+
+        if engine == 'sqlite':
+            cur_dir = os.path.dirname(os.path.abspath(__file__))
+            self.engine = create_engine('sqlite:///{}/../warehouse.db'.format(cur_dir))
+        if engine == 'stats_mysql':
+            pub_key_file = '~/.ssh/id_rsa'
+            tunnel_port = 4888
+            server = SSHTunnelForwarder(
+                ('stats.transitapp.com', 22),
+                ssh_username='deploy',
+                remote_bind_address=('127.0.0.1', 3306),
+                local_bind_address=('127.0.0.1', tunnel_port),
+                ssh_pkey=pub_key_file
+            )
+
+            # server.start()
+            stats_connection_str = 'mysql+pymysql://root:E%Y+U3bbA9K[Yo.q@localhost:{}/transit_biz_stats'.format(tunnel_port)
+
+            self.engine = create_engine(stats_connection_str)

@@ -3,7 +3,6 @@ from etl.Metric import *
 from etl.date_utils import last_month
 from etl.DataWarehouse import Period
 from etl.DataWarehouse import DataWarehouse
-from sqlalchemy import create_engine
 
 
 def bikeshare(date, gSheetId):
@@ -95,9 +94,7 @@ def agencies(date, gSheetId):
 
 
 def stored_agencies(date, gSheetId):
-    engine = create_engine('sqlite:///warehouse.db')
-
-    warehouse = DataWarehouse(engine)
+    warehouse = DataWarehouse('sqlite')
     rep = Report(date, gSheetId, warehouse=warehouse)
 
     periods = [
@@ -176,9 +173,7 @@ def kpi(date, gSheetId):
 def latest_metrics(date, gSheetId):
     """ Publish to 'one sheet to rule them all', with recent data about every agency """
 
-    engine = create_engine('sqlite:///warehouse.db')
-
-    warehouse = DataWarehouse(engine)
+    warehouse = DataWarehouse('sqlite')
     rep = Report(date, gSheetId)
 
     yearly = warehouse.slice_period(date, PeriodType.YEAR, [

@@ -1,4 +1,3 @@
-from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 from etl.google import export_data_to_sheet
@@ -15,12 +14,10 @@ class Mode(Enum):
     OUTPUT_CITIES = 2
     ALL = 3
 
+
 include_no_matter_what = ['UTA', 'INDYGOIN', 'WRTAMA', 'HARTFL', 'Salt Lake City']
 
-cur_dir = os.path.dirname(os.path.abspath(__file__))
-engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
-
-warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=20))
+warehouse = DataWarehouse('sqlite', amplitude_stops_changing=dt.timedelta(days=20))
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
 public = '1poUGMWDl7cmGFXobJquGAg04mObsmCEZP3TtpwQbKI4'

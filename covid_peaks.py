@@ -1,4 +1,3 @@
-from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 from etl.google import export_data_to_sheet
@@ -20,8 +19,7 @@ staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 include_no_matter_what = ['UTA', 'Salt Lake City']
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-engine = create_engine('sqlite:///{}/warehouse.db'.format(cur_dir))
-warehouse = DataWarehouse(engine, amplitude_stops_changing=dt.timedelta(days=10))
+warehouse = DataWarehouse('sqlite', amplitude_stops_changing=dt.timedelta(days=10))
 metric = AgencyUncorrectedSessions()
 
 tf = TimezoneFinder()

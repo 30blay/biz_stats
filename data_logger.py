@@ -1,11 +1,9 @@
-from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 import datetime
 
-engine = create_engine('sqlite:///warehouse.db')
 
-warehouse = DataWarehouse(engine)
+warehouse = DataWarehouse('sqlite')
 warehouse.create_all()
 warehouse.add_entities()
 

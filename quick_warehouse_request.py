@@ -1,16 +1,13 @@
-from sqlalchemy import create_engine
 from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 
-engine = create_engine('sqlite:///warehouse.db')
-
-warehouse = DataWarehouse(engine)
+warehouse = DataWarehouse('sqlite')
 
 start = pd.datetime(2018, 1, 1)
 stop = pd.datetime(2019, 12, 1)
 
 metrics = [
-    AgencyMau(),
+    AgencyDau(),
     AgencyDownloads(),
     AgencySessions(),
 ]
