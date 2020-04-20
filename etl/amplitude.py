@@ -1,6 +1,8 @@
 import requests
 import pandas as pd
 import enum
+import json
+import datetime as dt
 
 from .date_utils import last_day_of_month, weekday_avg, last_month, PeriodType
 from .pyamplitude.pyamplitude.apiresources import Segment, Event
@@ -194,3 +196,36 @@ def get_retention(amplitude_connection, period, group):
     dfB = chart(chart_id_B)
 
     return ret
+
+
+def identify(df, survey_name, survey_date):
+    """ df must contain a column named user_id, as well as the other properties to set """
+    if not isinstance(survey_date, dt.date):
+        raise ValueError("survey_date must be a datetime.date object")
+
+    if not isinstance(df, pd.DataFrame) or df.user_id.empty:
+        raise ValueError("df must be a pandas DataFrame with a user_id column")
+
+    prefix = 'Survey '
+
+    df['Last Update'] = survey_date.strftime('%Y-%m-%d')
+    df.columns = [prefix+c for c in df.columns]
+
+    identifications = []
+    for uid, others in zip(df[prefix+'user_id'], df.drop(columns=prefix+'user_id').to_dict('records')):
+        identifications.append({
+            'user_id': uid,
+            'user_properties': {'$set': others,
+                                '$append': {'Surveys Taken': survey_name}}
+        })
+
+    data = {
+        'api_key': api_key,
+        'identification': json.dumps(identifications)
+    }
+
+    response = requests.post(url='https://api.amplitude.com/identify',
+                             data=data)
+    print(response.status_code)
+
+# curl --data 'api_key=3687b056476e15e4fe1b346e559a4169' --data 'identification=[{"user_id":"f603f5a3c27423c4", "user_properties":{"Gender":"Male"}}]' https://api.amplitude.com/identify
