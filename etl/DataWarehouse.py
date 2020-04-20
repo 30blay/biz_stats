@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum, UniqueConstraint, ForeignKey, create_engine
+from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum as SQLEnum, UniqueConstraint, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from tqdm import tqdm
 from etl.date_utils import last_month, PeriodType, last_day_of_month
 from etl.transitapp_api import get_feeds, get_routes, get_feed_groups, get_sharing_systems
 from etl.Metric import MetricType, RouteHits, AgencyRatio
+from enum import Enum
 
 Base = declarative_base()
 
@@ -33,7 +34,7 @@ class Period(Base):
     __tablename__ = 'periods'
     period_id = Column(Integer, primary_key=True, autoincrement=True)
     start = Column(DateTime)
-    type = Column(Enum(PeriodType))
+    type = Column(SQLEnum(PeriodType))
     __table_args__ = (UniqueConstraint('start', 'type'),)
 
     def __init__(self, any_time, type_):
@@ -108,15 +109,22 @@ class RouteFact(Base):
     last_update = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
 
+class WarehouseMode(Enum):
+    PRODUCTION = 1
+    DEVELOPMENT = 2
+
+
 class DataWarehouse:
     def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60)):
+        try:
+            self.mode = WarehouseMode._member_map_[os.environ['WAREHOUSE_ENV'].upper()]
+        except KeyError:
+            self.mode = WarehouseMode.PRODUCTION
+
         self.engine = None
         self.create_engine(engine)
 
-        try:
-            self.verbose = os.environ['WAREHOUSE_ENV'] == 'development'
-        except KeyError:
-            self.verbose = False
+        self.verbose = self.mode == WarehouseMode.DEVELOPMENT
         self.declarative_base = Base
         self.connection = self.engine.connect()
         self.feeds = None
@@ -211,7 +219,9 @@ class DataWarehouse:
             if self.verbose:
                 print(metric.name)
             for period in tqdm(period_list, disable=not self.verbose):
-                
+                if period.period_id is None:
+                    period = self._merge_period(period)
+
                 if not self._needs_to_recalculate(period, metric, groups):
                     continue
 
@@ -552,16 +562,18 @@ class DataWarehouse:
             self.engine = create_engine('sqlite:///{}/../warehouse.db'.format(cur_dir))
         if engine == 'stats_mysql':
             pub_key_file = '~/.ssh/id_rsa'
-            tunnel_port = 4888
-            server = SSHTunnelForwarder(
-                ('stats.transitapp.com', 22),
-                ssh_username='deploy',
-                remote_bind_address=('127.0.0.1', 3306),
-                local_bind_address=('127.0.0.1', tunnel_port),
-                ssh_pkey=pub_key_file
-            )
+            db_port = 3306
+            if self.mode == WarehouseMode.DEVELOPMENT:
+                db_port = 4888
+                server = SSHTunnelForwarder(
+                    ('stats.transitapp.com', 22),
+                    ssh_username='deploy',
+                    remote_bind_address=('127.0.0.1', 3306),
+                    local_bind_address=('127.0.0.1', db_port),
+                    ssh_pkey=pub_key_file
+                )
 
-            # server.start()
-            stats_connection_str = 'mysql+pymysql://root:E%Y+U3bbA9K[Yo.q@localhost:{}/transit_biz_stats'.format(tunnel_port)
+                # server.start()
+            stats_connection_str = 'mysql+pymysql://root:E%Y+U3bbA9K[Yo.q@localhost:{}/transit_biz_stats'.format(db_port)
 
             self.engine = create_engine(stats_connection_str)

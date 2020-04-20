@@ -1,17 +1,18 @@
 from etl.DataWarehouse import DataWarehouse, Period, PeriodType
 from etl.date_utils import last_month
 from etl.Metric import *
-import datetime
+import datetime as dt
 
 warehouse = DataWarehouse('stats_mysql')
 
-now = datetime.datetime.now()
-period = Period(now - datetime.timedelta(hours=1), PeriodType.MONTH)
+start = dt.datetime(2019, 1, 1)
+stop = dt.datetime.now()
 
-warehouse.load(
+warehouse.load_between(
+    start,
+    stop,
+    PeriodType.MONTH,
     [
-        period,
-    ], [
         AgencyTripPlans(),
         AgencyGoTrips(),
         AgencyDownloads(),
