@@ -115,14 +115,15 @@ class WarehouseMode(Enum):
 
 
 class DataWarehouse:
-    def __init__(self, engine, amplitude_stops_changing=datetime.timedelta(days=60)):
+    def __init__(self, amplitude_stops_changing=datetime.timedelta(days=60)):
+        # get the mode from environment variable, or default to production
         try:
             self.mode = WarehouseMode._member_map_[os.environ['WAREHOUSE_ENV'].upper()]
         except KeyError:
             self.mode = WarehouseMode.PRODUCTION
 
         self.engine = None
-        self.create_engine(engine)
+        self.create_engine()
 
         self.verbose = self.mode == WarehouseMode.DEVELOPMENT
         self.declarative_base = Base
@@ -552,28 +553,23 @@ class DataWarehouse:
 
         return any_record is not None
 
-    def create_engine(self, engine):
-        valid_engines = ['sqlite', 'stats_mysql']
-        if engine not in valid_engines:
-            raise ValueError('engine must be one of {}'.format(','.join(valid_engines)))
-
-        if engine == 'sqlite':
+    def create_engine(self):
+        if self.mode == WarehouseMode.PRODUCTION:
             cur_dir = os.path.dirname(os.path.abspath(__file__))
             self.engine = create_engine('sqlite:///{}/../warehouse.db'.format(cur_dir))
-        if engine == 'stats_mysql':
-            pub_key_file = '~/.ssh/id_rsa'
-            db_port = 3306
-            if self.mode == WarehouseMode.DEVELOPMENT:
-                db_port = 4888
-                server = SSHTunnelForwarder(
-                    ('stats.transitapp.com', 22),
-                    ssh_username='deploy',
-                    remote_bind_address=('127.0.0.1', 3306),
-                    local_bind_address=('127.0.0.1', db_port),
-                    ssh_pkey=pub_key_file
-                )
 
-                # server.start()
+        if self.mode == WarehouseMode.DEVELOPMENT:
+            pub_key_file = '~/.ssh/id_rsa'
+            db_port = 4888
+            server = SSHTunnelForwarder(
+                ('stats.transitapp.com', 22),
+                ssh_username='deploy',
+                remote_bind_address=('127.0.0.1', 3306),
+                local_bind_address=('127.0.0.1', db_port),
+                ssh_pkey=pub_key_file
+            )
+
+            # server.start()
             stats_connection_str = 'mysql+pymysql://root:E%Y+U3bbA9K[Yo.q@localhost:{}/transit_biz_stats'.format(db_port)
 
             self.engine = create_engine(stats_connection_str)

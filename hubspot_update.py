@@ -2,7 +2,7 @@ from etl import hubspot
 from etl.Metric import *
 from etl.DataWarehouse import DataWarehouse
 
-warehouse = DataWarehouse('sqlite')
+warehouse = DataWarehouse()
 
 hubspot.update_companies(
     metrics=[

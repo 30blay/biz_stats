@@ -3,7 +3,7 @@ from etl.Metric import *
 import datetime
 
 
-warehouse = DataWarehouse('sqlite')
+warehouse = DataWarehouse()
 warehouse.create_all()
 warehouse.add_entities()
 

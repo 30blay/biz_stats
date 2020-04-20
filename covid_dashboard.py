@@ -17,7 +17,7 @@ class Mode(Enum):
 
 include_no_matter_what = ['UTA', 'INDYGOIN', 'WRTAMA', 'HARTFL', 'Salt Lake City']
 
-warehouse = DataWarehouse('sqlite', amplitude_stops_changing=dt.timedelta(days=20))
+warehouse = DataWarehouse(amplitude_stops_changing=dt.timedelta(days=20))
 
 gsheet = '1d3YKhnd1F0xg-S_FifIQbsrX-FoIs4Q94ALbnuSPZWw'
 public = '1poUGMWDl7cmGFXobJquGAg04mObsmCEZP3TtpwQbKI4'

@@ -5,7 +5,7 @@ import datetime as dt
 import copy
 
 
-warehouse = DataWarehouse('sqlite', amplitude_stops_changing=dt.timedelta(days=20))
+warehouse = DataWarehouse(amplitude_stops_changing=dt.timedelta(days=20))
 
 metric = RouteHits()
 

@@ -1,7 +1,7 @@
 from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 
-warehouse = DataWarehouse('sqlite')
+warehouse = DataWarehouse()
 
 start = pd.datetime(2018, 1, 1)
 stop = pd.datetime(2019, 12, 1)

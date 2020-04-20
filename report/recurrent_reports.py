@@ -94,7 +94,7 @@ def agencies(date, gSheetId):
 
 
 def stored_agencies(date, gSheetId):
-    warehouse = DataWarehouse('sqlite')
+    warehouse = DataWarehouse()
     rep = Report(date, gSheetId, warehouse=warehouse)
 
     periods = [
@@ -173,7 +173,7 @@ def kpi(date, gSheetId):
 def latest_metrics(date, gSheetId):
     """ Publish to 'one sheet to rule them all', with recent data about every agency """
 
-    warehouse = DataWarehouse('sqlite')
+    warehouse = DataWarehouse()
     rep = Report(date, gSheetId)
 
     yearly = warehouse.slice_period(date, PeriodType.YEAR, [
