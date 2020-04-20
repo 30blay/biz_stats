@@ -11,7 +11,7 @@ metric = RouteHits()
 
 staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 
-feed_codes = ['MTAS', 'MTAMNT', 'MTABK', 'MTABX', 'MTAQN', 'MTASI', 'MTABC']
+feed_codes = ['MDTA', 'RTACMMD', 'CCCMD']
 
 if __name__ == "__main__":
 
@@ -73,7 +73,6 @@ if __name__ == "__main__":
 
     effect['short name'] = effect.index.map(select_routes.route_short_name)
     effect['long name'] = effect.index.map(select_routes.route_long_name)
-    effect = effect.set_index('short name')
 
     # reverse, most recent on the left
     effect = effect.iloc[:, ::-1]
@@ -84,4 +83,4 @@ if __name__ == "__main__":
     # export to google sheet
     effect.columns = effect.columns.map(str)
     sheet = 'MTA routes'
-    export_data_to_sheet(effect, None, staging, sheet=sheet)
+    # export_data_to_sheet(effect, None, staging, sheet=sheet)
