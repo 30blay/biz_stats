@@ -1,4 +1,4 @@
-from etl.pyamplitude.pyamplitude.apiresources import Segment, Event
+from ..etl.pyamplitude.pyamplitude.apiresources import Segment, Event
 
 
 def bikeshare_city_mau():

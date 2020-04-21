@@ -3,12 +3,13 @@ import pandas as pd
 import enum
 import json
 import datetime as dt
+import numpy as np
 
 from .date_utils import last_day_of_month, weekday_avg, last_month, PeriodType
 from .pyamplitude.pyamplitude.apiresources import Segment, Event
-from etl import event_definitions
-from etl.pyamplitude.pyamplitude.projectshandler import ProjectsHandler
-from etl.pyamplitude.pyamplitude.amplituderestapi import AmplitudeRestApi
+from ..etl import event_definitions
+from ..etl.pyamplitude.pyamplitude.projectshandler import ProjectsHandler
+from ..etl.pyamplitude.pyamplitude.amplituderestapi import AmplitudeRestApi
 from functools import lru_cache
 
 
@@ -211,21 +212,24 @@ def identify(df, survey_name, survey_date):
     df['Last Update'] = survey_date.strftime('%Y-%m-%d')
     df.columns = [prefix+c for c in df.columns]
 
-    identifications = []
-    for uid, others in zip(df[prefix+'user_id'], df.drop(columns=prefix+'user_id').to_dict('records')):
-        identifications.append({
-            'user_id': uid,
-            'user_properties': {'$set': others,
-                                '$append': {'Surveys Taken': survey_name}}
-        })
+    def send(chunk):
+        identifications = []
+        for uid, others in zip(chunk[prefix+'user_id'], chunk.drop(columns=prefix+'user_id').to_dict('records')):
+            identifications.append({
+                'user_id': uid,
+                'user_properties': {'$set': others,
+                                    '$append': {'Surveys Taken': survey_name}}
+            })
 
-    data = {
-        'api_key': api_key,
-        'identification': json.dumps(identifications)
-    }
+        data = {
+            'api_key': api_key,
+            'identification': json.dumps(identifications)
+        }
 
-    response = requests.post(url='https://api.amplitude.com/identify',
-                             data=data)
-    print(response.status_code)
+        response = requests.post(url='https://api.amplitude.com/identify',
+                                 data=data)
+        print(response.status_code)
 
-# curl --data 'api_key=3687b056476e15e4fe1b346e559a4169' --data 'identification=[{"user_id":"f603f5a3c27423c4", "user_properties":{"Gender":"Male"}}]' https://api.amplitude.com/identify
+    chunk_size = 100
+    for index, chunk in df.groupby(np.arange(len(df)) // chunk_size):
+        send(chunk)
