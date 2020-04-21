@@ -5,11 +5,11 @@ import json
 import datetime as dt
 import numpy as np
 
-from .date_utils import last_day_of_month, weekday_avg, last_month, PeriodType
+from .date_utils import weekday_avg, PeriodType
 from .pyamplitude.pyamplitude.apiresources import Segment, Event
-from ..etl import event_definitions
-from ..etl.pyamplitude.pyamplitude.projectshandler import ProjectsHandler
-from ..etl.pyamplitude.pyamplitude.amplituderestapi import AmplitudeRestApi
+from etl import event_definitions
+from etl.pyamplitude.pyamplitude.projectshandler import ProjectsHandler
+from etl.pyamplitude.pyamplitude.amplituderestapi import AmplitudeRestApi
 from functools import lru_cache
 
 

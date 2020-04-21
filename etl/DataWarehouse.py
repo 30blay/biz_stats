@@ -1,19 +1,16 @@
-from sqlalchemy import MetaData, Column, Integer, Float, String, DateTime, Enum as SQLEnum, UniqueConstraint, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, Float, String, DateTime, Enum as SQLEnum, UniqueConstraint, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.exc import IntegrityError, InvalidRequestError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.hybrid import hybrid_property
-from contextlib import contextmanager
-from sshtunnel import SSHTunnelForwarder
-
+import sshtunnel
 
 import datetime
 import os
-from copy import copy
 import pandas as pd
 from tqdm import tqdm
-from etl.date_utils import last_month, PeriodType, last_day_of_month
+from etl.date_utils import PeriodType, last_day_of_month
 from etl.transitapp_api import get_feeds, get_routes, get_feed_groups, get_sharing_systems
 from etl.Metric import MetricType, RouteHits, AgencyRatio
 from enum import Enum
@@ -115,7 +112,12 @@ class WarehouseMode(Enum):
 
 
 class DataWarehouse:
-    def __init__(self, amplitude_stops_changing=datetime.timedelta(days=60)):
+    def __init__(self, amplitude_stops_changing=datetime.timedelta(days=60), load_before_pull=False):
+        """
+        Args:
+            amplitude_stops_changing: timedelta for which we will fetch the metric from Amplitude because of delayed reporting
+            load_before_pull: functions that pull from the warehouse will try to load missing data.
+        """
         # get the mode from environment variable, or default to production
         try:
             self.mode = WarehouseMode._member_map_[os.environ['WAREHOUSE_ENV'].upper()]
@@ -126,6 +128,7 @@ class DataWarehouse:
         self.create_engine()
 
         self.verbose = self.mode == WarehouseMode.DEVELOPMENT
+        self.load_before_pull = load_before_pull
         self.declarative_base = Base
         self.connection = self.engine.connect()
         self.feeds = None
@@ -175,11 +178,15 @@ class DataWarehouse:
         feeds = self.get_feeds()
         sharing_systems = self.get_sharing_systems()
 
+        existing = pd.read_sql_table(Entity.__tablename__, self.connection)
+
         entities = []
         for _, feed in feeds.iterrows():
-            entities.append(Entity(type='feed', feed_id=feed['feed_id']))
+            if feed['feed_id'] not in existing.feed_id:
+                entities.append(Entity(type='feed', feed_id=feed['feed_id']))
         for _, sharing_system in sharing_systems.iterrows():
-            entities.append(Entity(type='sharing_system', sharing_system_id=sharing_system['system_id']))
+            if sharing_system['system_id'] not in existing.sharing_system_id:
+                entities.append(Entity(type='sharing_system', sharing_system_id=sharing_system['system_id']))
 
         for entity in entities:
             try:
@@ -329,7 +336,9 @@ class DataWarehouse:
         metric_names = [metric.name for metric in metrics]
         entity_id = self._get_entity_id(feed_id)
         periods = self.get_periods_between(start, stop, period_type)
-        self.load(periods, metrics)
+
+        if self.load_before_pull:
+            self.load(periods, metrics)
 
         query = self.session.query(AgencyFact.metric, Period.start, AgencyFact.value, AgencyFact.last_update)\
             .outerjoin(Period, Period.period_id == AgencyFact.period_id)\
@@ -346,7 +355,9 @@ class DataWarehouse:
     def slice_period(self, any_time, period_type, metrics):
         # nothing will happen if they are already there
         period = self._merge_period(Period(any_time=any_time, type_=period_type))
-        self.load([period], metrics)
+
+        if self.load_before_pull:
+            self.load([period], metrics)
 
         all_metric_names = [metric.name for metric in metrics]
         stored_metric_names = [metric.name for metric in metrics if not isinstance(metric, AgencyRatio)]
@@ -383,8 +394,8 @@ class DataWarehouse:
         if metric.entity_type not in [MetricType.AGENCY, MetricType.ROUTE]:
             raise ValueError("Unsupported metric type {}".format(metric.entity_type.name))
 
-        # nothing will happen if they are already there
-        self.load(periods, [metric])
+        if self.load_before_pull:
+            self.load(periods, [metric])
 
         getter = {MetricType.AGENCY: self.slice_metric_agencies,
                   MetricType.ROUTE: self.slice_metric_routes}[metric.entity_type]
@@ -467,7 +478,8 @@ class DataWarehouse:
         """
         period = self._merge_period(Period(any_date, period_type))
         metric = RouteHits()
-        self.load([period], [metric])
+        if self.load_before_pull:
+            self.load([period], [metric])
 
         query = self.session.query(RouteFact.feed_id, RouteFact.global_route_id, RouteFact.value) \
             .outerjoin(Period, Period.period_id == RouteFact.period_id) \
@@ -561,7 +573,7 @@ class DataWarehouse:
         if self.mode == WarehouseMode.DEVELOPMENT:
             pub_key_file = '~/.ssh/id_rsa'
             db_port = 4888
-            server = SSHTunnelForwarder(
+            server = sshtunnel.SSHTunnelForwarder(
                 ('stats.transitapp.com', 22),
                 ssh_username='deploy',
                 remote_bind_address=('127.0.0.1', 3306),
@@ -570,6 +582,7 @@ class DataWarehouse:
             )
 
             # server.start()
+
             stats_connection_str = 'mysql+pymysql://root:E%Y+U3bbA9K[Yo.q@localhost:{}/transit_biz_stats'.format(db_port)
 
             self.engine = create_engine(stats_connection_str)

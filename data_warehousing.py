@@ -1,11 +1,10 @@
-from etl.DataWarehouse import DataWarehouse, Period, PeriodType
-from etl.date_utils import last_month
+from etl.DataWarehouse import DataWarehouse
 from etl.Metric import *
 import datetime as dt
 
 warehouse = DataWarehouse()
 
-start = dt.datetime(2019, 1, 1)
+start = dt.datetime(2018, 1, 1)
 stop = dt.datetime.now()
 
 warehouse.load_between(

@@ -19,7 +19,7 @@ staging = '1uaCfOpnX8s_Bf0LwIsVFUSBIWhQ34nGx41xcjyKYmdY'
 include_no_matter_what = ['UTA', 'Salt Lake City']
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
-warehouse = DataWarehouse(amplitude_stops_changing=dt.timedelta(days=10))
+warehouse = DataWarehouse(amplitude_stops_changing=dt.timedelta(days=10), load_before_pull=True)
 metric = AgencyUncorrectedSessions()
 
 tf = TimezoneFinder()
