@@ -48,6 +48,9 @@ class Metric:
         if not isinstance(metric_type, MetricType):
             raise ValueError('Invalid metric type')
 
+    def __str__(self):
+        return self.name
+
     def get(self, period, groups, groups_only=False):
         """
         Get the values for that metric for a specific period.

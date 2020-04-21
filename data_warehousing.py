@@ -12,6 +12,8 @@ warehouse.load_between(
     stop,
     PeriodType.MONTH,
     [
+        AgencyMau(),
+        AgencyDau(),
         AgencyTripPlans(),
         AgencyGoTrips(),
         AgencyDownloads(),
