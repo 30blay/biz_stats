@@ -1,5 +1,6 @@
-from etl.DataWarehouse import DataWarehouse
+from BizStatsClient import BizStatsClient
 from etl.Metric import *
+from etl.transitapp_api import get_feeds
 import streamlit as st
 import altair as alt
 import matplotlib.pyplot as plt
@@ -13,19 +14,22 @@ metrics = [
     AgencyGoTrips(),
     AgencyDownloads(),
     AgencySessions(),
+    AgencyUncorrectedSessions(),
     AgencySales(),
     AgencyTicketsSold(),
+    AgencyAlertsSubs(),
 ]
 
-warehouse = DataWarehouse()
+warehouse = BizStatsClient()
 
 
-def load_feed_slice(warehouse, feed_code, start, stop):
-    df = warehouse.slice_feed(feed_code, metrics, start, stop, PeriodType.MONTH)
+# @st.cache()
+def load_feed_slice(feed_code, period_type, start):
+    df = warehouse.slice_feed(feed_code, metrics, start, period_type=period_type)
     return df
 
 
-def load_metric_slice(warehouse, metric, start, stop):
+def load_metric_slice(metric, start, stop):
     df = warehouse.slice_metric(start, stop, PeriodType.MONTH, metric)
     return df
 
@@ -35,12 +39,12 @@ def main():
     page = st.sidebar.radio("", ["Slice Feed", "Slice Metric"])
 
     if page == "Slice Feed":
-        start = dt.datetime.combine(st.date_input('start', dt.date(2018, 1, 1)), dt.datetime.min.time())
-        stop = dt.datetime.combine(st.date_input('start', dt.date.today()), dt.datetime.min.time())
-        feed_code = st.selectbox("Feed", warehouse.get_feeds().feed_code)
-        df = load_feed_slice(warehouse, feed_code, start, stop)
+        start = dt.datetime.combine(st.date_input('start', dt.date(2020, 1, 1)), dt.datetime.min.time())
+        feed_code = st.selectbox("Feed", get_feeds().feed_code)
+        period_type = st.selectbox("Period Type", list(PeriodType))
+        df = load_feed_slice(feed_code, period_type, start)
         y_axis = st.selectbox("Metric", df.columns)
-        c = alt.Chart(df.reset_index()).mark_line().encode(x='start', y=y_axis, tooltip=['start', y_axis])
+        c = alt.Chart(df.reset_index()).mark_line().encode(x='date', y=y_axis, tooltip=['date', y_axis])
         st.altair_chart(c, use_container_width=True)
         st.table(df)
 
@@ -48,7 +52,7 @@ def main():
         start = dt.datetime.combine(st.date_input('start', dt.date(2018, 1, 1)), dt.datetime.min.time())
         stop = dt.datetime.combine(st.date_input('start', dt.date.today()), dt.datetime.min.time())
         metric = st.selectbox("Metric", metrics)
-        feeds = st.multiselect('Feed codes', warehouse.get_feeds().feed_code)
+        feeds = st.multiselect('Feed codes', get_feeds().feed_code)
         with st.spinner('Wait for it...'):
             df = load_metric_slice(warehouse, metric, start, stop).T[feeds].unstack().rename(metric.name).reset_index()
         c = alt.Chart(df).mark_line().encode(x='start', y=metric.name, color='feed_code')
@@ -57,4 +61,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    warehouse.connection.close()

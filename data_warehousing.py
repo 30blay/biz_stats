@@ -20,4 +20,5 @@ warehouse.load_between(
         AgencySessions(),
         AgencySales(),
         AgencyTicketsSold(),
+        AgencyAlertsSubs(),
     ])

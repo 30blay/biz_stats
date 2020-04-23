@@ -1,0 +1,54 @@
+swagger: "2.0"
+info:
+  description: This is the swagger file that goes with our server code
+  version: "1.0.0"
+  title: Business Stats API
+consumes:
+  - "application/json"
+produces:
+  - "application/json"
+
+basePath: "/biz"
+
+# Paths supported by the server application
+paths:
+  /slice_feed:
+    get:
+      operationId: "api.slice_feed"
+      tags:
+        - "Slice Feed"
+      summary: "Get data for a single feed"
+      description: "Get multiple metrics and time periods, but a single feed"
+      parameters:
+        - name: feed_code
+          in: query
+          type: string
+          description: feed code of the agency, in all caps
+          required: true
+        - name: metrics
+          in: query
+          type: array
+          items:
+            type: string
+          description: list of metrics to fetch
+          required: true
+        - name: period_type
+          in: query
+          type: string
+          enum: [year, quarter, month, day, hour]
+          description: type of periods to fetch
+          required: true
+        - name: start
+          in: query
+          type: string
+          format: date-time
+          description: Fetch all periods after this date-time
+          required: true
+      responses:
+        200:
+          description: "Successful sliced a feed"
+          schema:
+            type: "array"
+            items:
+              type: number
+              format: float
