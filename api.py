@@ -9,6 +9,8 @@ from etl.date_utils import PeriodType
 
 warehouse = DataWarehouse()
 
+date_format = "%Y-%m-%dT%H:%M:%SZ"
+
 allowed_metrics = [
     AgencyMau(),
     AgencyDau(),
@@ -25,15 +27,28 @@ allowed_metrics = [
 allowed_metrics_dict = dict(zip([str(m) for m in allowed_metrics], allowed_metrics))
 
 
-def slice_feed(feed_code, metrics, period_type, start):
-    start = dt.datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
-    stop = dt.datetime.now()
+def slice_feed(feed_code, metrics, period_type, start, stop):
+    start = dt.datetime.strptime(start, date_format)
+    stop = dt.datetime.strptime(stop, date_format)
 
     metrics = [allowed_metrics_dict[m] for m in metrics]
 
     period_type = PeriodType.__getitem__(period_type.upper())
 
     df = warehouse.slice_feed(feed_code, metrics, start, stop, period_type)
+
+    return df.to_json()
+
+
+def slice_metric(metric, period_type, start, stop):
+    start = dt.datetime.strptime(start, date_format)
+    stop = dt.datetime.strptime(stop, date_format)
+
+    metric = allowed_metrics_dict[metric]
+
+    period_type = PeriodType.__getitem__(period_type.upper())
+
+    df = warehouse.slice_metric(start, stop, period_type, metric)
 
     return df.to_json()
 

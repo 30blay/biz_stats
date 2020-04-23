@@ -44,6 +44,52 @@ paths:
           format: date-time
           description: Fetch all periods after this date-time
           required: true
+        - name: stop
+          in: query
+          type: string
+          format: date-time
+          description: Fetch all periods before this date-time
+          required: true
+      responses:
+        200:
+          description: "Successful sliced a feed"
+          schema:
+            type: "array"
+            items:
+              type: number
+              format: float
+
+  /slice_metric:
+    get:
+      operationId: "api.slice_metric"
+      tags:
+        - "Slice Feed"
+      summary: "Get data for a single metric"
+      description: "Get multiple entities and time periods, but a single metric"
+      parameters:
+        - name: metric
+          in: query
+          type: string
+          description: name of the metric to fetch
+          required: true
+        - name: period_type
+          in: query
+          type: string
+          enum: [year, quarter, month, day, hour]
+          description: type of periods to fetch
+          required: true
+        - name: start
+          in: query
+          type: string
+          format: date-time
+          description: Fetch all periods after this date-time
+          required: true
+        - name: stop
+          in: query
+          type: string
+          format: date-time
+          description: Fetch all periods before this date-time
+          required: true
       responses:
         200:
           description: "Successful sliced a feed"
